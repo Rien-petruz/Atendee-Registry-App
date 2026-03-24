@@ -1,0 +1,20 @@
+packages:
+  "framer-motion": "For smooth page transitions and micro-interactions"
+  "react-hook-form": "For robust form state management"
+  "@hookform/resolvers": "For Zod schema validation integration"
+  "clsx": "For conditional class name merging"
+  "tailwind-merge": "For conditional class name merging without conflicts"
+  "date-fns": "For formatting dates in the attendee table"
+
+images:
+  - path: "artifacts/event-app/public/images/auth-bg.png"
+    description: "Premium dark abstract background with subtle glowing purple and cyan geometric light leaks, professional and sleek, deep black base"
+    aspect_ratio: "16:9"
+  - path: "artifacts/event-app/public/images/register-hero.png"
+    description: "Modern event atmosphere, dark theme, abstract concert or conference lighting with subtle glowing magenta and blue neon lines, out of focus depth of field"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using @workspace/api-client-react for TanStack Query hooks.
+  - Assuming customFetch in generated client passes options.request.headers correctly.
+  - JWT auth token will be stored in localStorage and attached to headers manually in query options.

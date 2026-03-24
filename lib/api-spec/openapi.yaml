@@ -1,15 +1,23 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Event Attendee App API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: attendees
+    description: Attendee management operations
+  - name: settings
+    description: SMTP settings operations
+  - name: email
+    description: Email sending operations
+
 paths:
   /healthz:
     get:
@@ -24,7 +32,281 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Admin logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current admin info
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current admin user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /attendees:
+    post:
+      operationId: registerAttendee
+      tags: [attendees]
+      summary: Register a new attendee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterAttendeeRequest"
+      responses:
+        "201":
+          description: Attendee registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attendee"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: getAttendees
+      tags: [attendees]
+      summary: Get attendees with filtering, sorting, pagination
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by name or email
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, newcomers, returning]
+          description: Filter attendees
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, oldest]
+          description: Sort order
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Items per page
+      responses:
+        "200":
+          description: List of attendees
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendeesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /attendees/export:
+    get:
+      operationId: exportAttendees
+      tags: [attendees]
+      summary: Export attendees as CSV
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, newcomers, returning]
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/smtp:
+    get:
+      operationId: getSmtpSettings
+      tags: [settings]
+      summary: Get SMTP settings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: SMTP settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmtpSettings"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: saveSmtpSettings
+      tags: [settings]
+      summary: Save SMTP settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmtpSettingsRequest"
+      responses:
+        "200":
+          description: Settings saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmtpSettings"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/smtp/test:
+    post:
+      operationId: testSmtpSettings
+      tags: [settings]
+      summary: Test SMTP connection
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /email/send:
+    post:
+      operationId: sendEmail
+      tags: [email]
+      summary: Send bulk email to attendees
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendEmailRequest"
+      responses:
+        "200":
+          description: Email send result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendEmailResponse"
+        "400":
+          description: Bad request (no SMTP configured, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +316,202 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        admin:
+          $ref: "#/components/schemas/AdminUser"
+      required:
+        - token
+        - admin
+
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - createdAt
+
+    RegisterAttendeeRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        phoneNumber:
+          type: string
+          minLength: 7
+        isNewcomer:
+          type: boolean
+      required:
+        - fullName
+        - email
+        - phoneNumber
+        - isNewcomer
+
+    Attendee:
+      type: object
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        email:
+          type: string
+        phoneNumber:
+          type: string
+        isNewcomer:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - fullName
+        - email
+        - phoneNumber
+        - isNewcomer
+        - createdAt
+
+    AttendeesResponse:
+      type: object
+      properties:
+        attendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attendee"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - attendees
+        - total
+        - page
+        - limit
+        - totalPages
+
+    SmtpSettings:
+      type: object
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        encryption:
+          type: string
+          enum: [tls, ssl, none]
+        isConfigured:
+          type: boolean
+      required:
+        - host
+        - port
+        - username
+        - encryption
+        - isConfigured
+
+    SmtpSettingsRequest:
+      type: object
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+          format: email
+        password:
+          type: string
+        encryption:
+          type: string
+          enum: [tls, ssl, none]
+      required:
+        - host
+        - port
+        - username
+        - password
+        - encryption
+
+    SendEmailRequest:
+      type: object
+      properties:
+        subject:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+        targetGroup:
+          type: string
+          enum: [all, newcomers, returning]
+      required:
+        - subject
+        - message
+        - targetGroup
+
+    SendEmailResponse:
+      type: object
+      properties:
+        successCount:
+          type: integer
+        failedCount:
+          type: integer
+        total:
+          type: integer
+        message:
+          type: string
+      required:
+        - successCount
+        - failedCount
+        - total
+        - message
