@@ -1,17 +1,130 @@
 import * as React from "react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { 
   Search, Users, UserPlus, UserCheck, Download, 
-  ArrowUpDown, ChevronLeft, ChevronRight, Filter
+  ArrowUpDown, ChevronLeft, ChevronRight, Filter, Plus, X
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useGetAttendees, useExportAttendees, GetAttendeesFilter, GetAttendeesSort } from "@workspace/api-client-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
+} from "@/components/ui/dialog";
+import { useGetAttendees, useExportAttendees, useRegisterAttendee, GetAttendeesFilter, GetAttendeesSort } from "@workspace/api-client-react";
 import { getApiOptions } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+
+const addAttendeeSchema = z.object({
+  fullName: z.string().min(2, "Full name is required"),
+  email: z.string().email("Invalid email address"),
+  phoneNumber: z.string().optional(),
+});
+
+type AddAttendeeValues = z.infer<typeof addAttendeeSchema>;
+
+function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
+  const { toast } = useToast();
+  const { mutate: registerAttendee, isPending } = useRegisterAttendee();
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddAttendeeValues>({
+    resolver: zodResolver(addAttendeeSchema),
+  });
+
+  const onSubmit = (data: AddAttendeeValues) => {
+    registerAttendee(
+      { data: { fullName: data.fullName, email: data.email, phoneNumber: data.phoneNumber || "—", isNewcomer: false } },
+      {
+        onSuccess: () => {
+          toast({ title: "Attendee added", description: `${data.fullName} has been added successfully.` });
+          reset();
+          onSuccess();
+          onClose();
+        },
+        onError: (err: any) => {
+          const msg = err?.message || "Failed to add attendee.";
+          toast({ title: "Error", description: msg.includes("already") ? "This email is already registered." : msg, variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="bg-card border-white/10 max-w-md w-full">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <UserPlus className="w-4 h-4 text-primary" />
+            </div>
+            Add Attendee
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Manually add an attendee to the registry.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 mt-2">
+          <div className="space-y-2">
+            <Label htmlFor="add-fullName">Full Name <span className="text-destructive">*</span></Label>
+            <Input
+              id="add-fullName"
+              placeholder="e.g. John Smith"
+              {...register("fullName")}
+              className={`bg-black/30 border-white/10 ${errors.fullName ? "border-destructive" : ""}`}
+            />
+            {errors.fullName && <p className="text-xs text-destructive">{errors.fullName.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-email">Email Address <span className="text-destructive">*</span></Label>
+            <Input
+              id="add-email"
+              type="email"
+              placeholder="e.g. john@example.com"
+              {...register("email")}
+              className={`bg-black/30 border-white/10 ${errors.email ? "border-destructive" : ""}`}
+            />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-phone">
+              Phone Number <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Input
+              id="add-phone"
+              placeholder="e.g. +1 555 000 0000"
+              {...register("phoneNumber")}
+              className="bg-black/30 border-white/10"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1 border-white/10" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="gradient" className="flex-1" isLoading={isPending}>
+              Add Attendee
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Dashboard() {
   const [search, setSearch] = useState("");
@@ -19,32 +132,26 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<GetAttendeesFilter>("all");
   const [sort, setSort] = useState<GetAttendeesSort>("newest");
   const [page, setPage] = useState(1);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const limit = 10;
 
-  // Debounce search
+  const queryClient = useQueryClient();
+
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(1); // Reset page on new search
+      setPage(1);
     }, 500);
     return () => clearTimeout(timer);
   }, [search]);
 
   const apiOpts = getApiOptions();
 
-  // Fetch paginated table data
   const { data, isLoading } = useGetAttendees(
-    { 
-      page, 
-      limit, 
-      filter: filter !== "all" ? filter : undefined,
-      sort,
-      search: debouncedSearch || undefined
-    }, 
+    { page, limit, filter: filter !== "all" ? filter : undefined, sort, search: debouncedSearch || undefined },
     apiOpts
   );
 
-  // Stats fetching (best effort without dedicated endpoint)
   const { data: allStats } = useGetAttendees({ filter: "all", limit: 1 }, apiOpts);
   const { data: newStats } = useGetAttendees({ filter: "newcomers", limit: 1 }, apiOpts);
   const { data: retStats } = useGetAttendees({ filter: "returning", limit: 1 }, apiOpts);
@@ -57,15 +164,17 @@ export default function Dashboard() {
   const handleExport = async () => {
     const res = await exportCsv();
     if (res.data) {
-      // In a real app, the API might return CSV text or a URL
-      // If it's text, we can trigger a download
-      const blob = new Blob([res.data], { type: 'text/csv' });
+      const blob = new Blob([res.data], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `attendees-${filter}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.download = `attendees-${filter}-${format(new Date(), "yyyy-MM-dd")}.csv`;
       a.click();
     }
+  };
+
+  const handleAttendeeAdded = () => {
+    queryClient.invalidateQueries({ queryKey: ["getAttendees"] });
   };
 
   const statCards = [
@@ -75,7 +184,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="max-w-6xl mx-auto space-y-8"
@@ -83,12 +192,22 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Manage and view your event attendees.</p>
+          <p className="text-muted-foreground mt-1">Manage and view your church attendees.</p>
         </div>
-        <Button onClick={handleExport} isLoading={isExporting} variant="outline" className="gap-2 border-white/10 hover:bg-white/5">
-          <Download className="w-4 h-4" />
-          Export CSV
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setShowAddDialog(true)}
+            variant="gradient"
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Attendee
+          </Button>
+          <Button onClick={handleExport} isLoading={isExporting} variant="outline" className="gap-2 border-white/10 hover:bg-white/5">
+            <Download className="w-4 h-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -113,21 +232,21 @@ export default function Dashboard() {
         <div className="p-4 border-b border-white/5 bg-black/20 flex flex-col lg:flex-row gap-4 justify-between items-center">
           <div className="relative w-full lg:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search by name or email..." 
+            <Input
+              placeholder="Search by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 bg-black/40 border-white/5"
             />
           </div>
-          
+
           <div className="flex w-full lg:w-auto items-center gap-3 overflow-x-auto pb-2 lg:pb-0">
             <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
               {(["all", "newcomers", "returning"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => { setFilter(f); setPage(1); }}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all ${filter === f ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-white hover:bg-white/5'}`}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all ${filter === f ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:text-white hover:bg-white/5"}`}
                 >
                   {f}
                 </button>
@@ -169,9 +288,10 @@ export default function Dashboard() {
                 ))
               ) : data?.attendees.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-6 py-16 text-center text-muted-foreground">
                     <Filter className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    No attendees found matching your criteria.
+                    <p className="font-medium">No attendees found</p>
+                    <p className="text-sm mt-1 opacity-60">Try adjusting your filters or add one manually.</p>
                   </td>
                 </tr>
               ) : (
@@ -201,23 +321,25 @@ export default function Dashboard() {
         {data && data.totalPages > 1 && (
           <div className="p-4 border-t border-white/5 bg-black/20 flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
-              Showing <span className="text-foreground font-medium">{(page - 1) * limit + 1}</span> to <span className="text-foreground font-medium">{Math.min(page * limit, data.total)}</span> of <span className="text-foreground font-medium">{data.total}</span> entries
+              Showing <span className="text-foreground font-medium">{(page - 1) * limit + 1}</span> to{" "}
+              <span className="text-foreground font-medium">{Math.min(page * limit, data.total)}</span> of{" "}
+              <span className="text-foreground font-medium">{data.total}</span> entries
             </span>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="border-white/10"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Prev
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 className="border-white/10"
-                onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
+                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
                 disabled={page === data.totalPages}
               >
                 Next <ChevronRight className="w-4 h-4 ml-1" />
@@ -226,6 +348,12 @@ export default function Dashboard() {
           </div>
         )}
       </Card>
+
+      <AddAttendeeDialog
+        open={showAddDialog}
+        onClose={() => setShowAddDialog(false)}
+        onSuccess={handleAttendeeAdded}
+      />
     </motion.div>
   );
 }
