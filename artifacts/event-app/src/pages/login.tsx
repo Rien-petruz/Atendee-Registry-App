@@ -66,7 +66,7 @@ export default function Login() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center mb-6 shadow-2xl shadow-primary/30">
             <Hexagon className="text-white w-8 h-8" />
           </div>
-          <h1 className="font-display font-bold text-3xl text-foreground">Aura<span className="text-primary">Events</span></h1>
+          <h1 className="font-display font-bold text-3xl text-foreground">TNP<span className="text-primary"> Registry</span></h1>
           <p className="text-muted-foreground mt-2">Admin Portal Login</p>
         </div>
 
@@ -85,7 +85,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@auraevents.com"
+                  placeholder="admin@tnp.com"
                   {...register("email")}
                   className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
                 />

@@ -58,8 +58,8 @@ export default function Register() {
           <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center mb-6 shadow-xl shadow-primary/20">
             <Hexagon className="text-white w-7 h-7" />
           </div>
-          <h2 className="text-4xl font-display font-bold text-white mb-4">Join the ultimate tech experience.</h2>
-          <p className="text-lg text-white/70">Register today to secure your spot at Aura Events. Connect, learn, and grow.</p>
+          <h2 className="text-4xl font-display font-bold text-white mb-4">Welcome to TNP Registry.</h2>
+          <p className="text-lg text-white/70">Register today to be part of our church program. We're glad you're here.</p>
         </div>
       </div>
 
@@ -98,7 +98,7 @@ export default function Register() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-lg shadow-primary/20">
                   <Hexagon className="text-white w-6 h-6" />
                 </div>
-                <h1 className="font-display font-bold text-2xl text-foreground">Aura<span className="text-primary">Events</span></h1>
+                <h1 className="font-display font-bold text-2xl text-foreground">TNP<span className="text-primary"> Registry</span></h1>
               </div>
 
               <Card className="glass-panel">

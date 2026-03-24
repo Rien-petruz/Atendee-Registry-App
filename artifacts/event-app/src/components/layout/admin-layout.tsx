@@ -23,7 +23,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <Hexagon className="text-white w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-display font-bold text-xl text-foreground">Aura<span className="text-primary">Events</span></h1>
+            <h1 className="font-display font-bold text-xl text-foreground">TNP<span className="text-primary"> Registry</span></h1>
             <p className="text-xs text-muted-foreground">Admin Portal</p>
           </div>
         </div>

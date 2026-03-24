@@ -38,7 +38,7 @@ export default function Email() {
     resolver: zodResolver(emailSchema),
     defaultValues: {
       targetGroup: "all",
-      message: "Hello {{name}},\n\nThank you for registering for Aura Events!\n\nBest,\nThe Team",
+      message: "Hello {{name}},\n\nThank you for registering for TNP Registry!\n\nGod bless you,\nThe TNP Team",
     }
   });
 
@@ -178,7 +178,7 @@ export default function Email() {
                         <Label htmlFor="subject">Subject Line</Label>
                         <Input
                           id="subject"
-                          placeholder="Important update about Aura Events"
+                          placeholder="Important update from TNP Registry"
                           {...register("subject")}
                           className={errors.subject ? "border-destructive" : ""}
                         />
