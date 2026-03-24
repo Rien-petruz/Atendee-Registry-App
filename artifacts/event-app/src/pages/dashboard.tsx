@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from "@/components/ui/dialog";
-import { useGetAttendees, useExportAttendees, useRegisterAttendee, GetAttendeesFilter, GetAttendeesSort } from "@workspace/api-client-react";
+import { useGetAttendees, useExportAttendees, useRegisterAttendee, getGetAttendeesQueryKey, GetAttendeesFilter, GetAttendeesSort } from "@workspace/api-client-react";
 import { getApiOptions } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -174,7 +174,7 @@ export default function Dashboard() {
   };
 
   const handleAttendeeAdded = () => {
-    queryClient.invalidateQueries({ queryKey: ["getAttendees"] });
+    queryClient.invalidateQueries({ queryKey: getGetAttendeesQueryKey() });
   };
 
   const statCards = [
