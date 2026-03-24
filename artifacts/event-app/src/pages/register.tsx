@@ -165,7 +165,7 @@ export default function Register() {
                     )}
 
                     <Button type="submit" className="w-full" size="lg" variant="gradient" isLoading={isPending}>
-                      Secure My Spot
+                      Submit
                     </Button>
                   </form>
                 </CardContent>
