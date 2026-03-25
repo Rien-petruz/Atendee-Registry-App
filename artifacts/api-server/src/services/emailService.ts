@@ -65,7 +65,7 @@ export async function sendBulkEmail(
 
       const htmlBody = personalizedMessage.replace(/\n/g, "<br>");
       const imageTag = imageBase64 && imageMimeType
-        ? `<div style="margin-top:24px;text-align:center;"><img src="data:${imageMimeType};base64,${imageBase64}" alt="Email image" style="max-width:100%;border-radius:8px;" /></div>`
+        ? `<div style="margin-top:24px;text-align:center;"><img src="cid:emailimage" alt="Email image" style="max-width:100%;border-radius:8px;" /></div>`
         : "";
 
       await transport.sendMail({
@@ -74,6 +74,14 @@ export async function sendBulkEmail(
         subject: personalizedSubject,
         html: htmlBody + imageTag,
         text: personalizedMessage,
+        attachments: imageBase64 && imageMimeType
+          ? [{
+              filename: "image",
+              content: Buffer.from(imageBase64, "base64"),
+              contentType: imageMimeType,
+              cid: "emailimage",
+            }]
+          : [],
       });
 
       successCount++;
