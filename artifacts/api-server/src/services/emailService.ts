@@ -35,7 +35,9 @@ function replacePlaceholders(template: string, name: string, email: string): str
 export async function sendBulkEmail(
   subject: string,
   messageTemplate: string,
-  targetGroup: "all" | "newcomers" | "returning"
+  targetGroup: "all" | "newcomers" | "returning",
+  imageBase64?: string,
+  imageMimeType?: string
 ): Promise<{ successCount: number; failedCount: number; total: number }> {
   const [smtpSettings] = await db.select().from(smtpSettingsTable).limit(1);
   if (!smtpSettings) throw new Error("SMTP not configured");
@@ -61,11 +63,16 @@ export async function sendBulkEmail(
       const personalizedSubject = replacePlaceholders(subject, recipient.fullName, recipient.email);
       const personalizedMessage = replacePlaceholders(messageTemplate, recipient.fullName, recipient.email);
 
+      const htmlBody = personalizedMessage.replace(/\n/g, "<br>");
+      const imageTag = imageBase64 && imageMimeType
+        ? `<div style="margin-top:24px;text-align:center;"><img src="data:${imageMimeType};base64,${imageBase64}" alt="Email image" style="max-width:100%;border-radius:8px;" /></div>`
+        : "";
+
       await transport.sendMail({
         from: smtpSettings.username,
         to: recipient.email,
         subject: personalizedSubject,
-        html: personalizedMessage.replace(/\n/g, "<br>"),
+        html: htmlBody + imageTag,
         text: personalizedMessage,
       });
 

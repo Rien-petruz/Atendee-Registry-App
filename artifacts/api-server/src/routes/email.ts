@@ -5,7 +5,7 @@ import { sendBulkEmail } from "../services/emailService.js";
 const router: IRouter = Router();
 
 router.post("/send", requireAuth, async (req, res) => {
-  const { subject, message, targetGroup } = req.body;
+  const { subject, message, targetGroup, imageBase64, imageMimeType } = req.body;
 
   if (!subject || !message || !targetGroup) {
     res.status(400).json({ error: "Bad Request", message: "subject, message, and targetGroup are required" });
@@ -18,7 +18,7 @@ router.post("/send", requireAuth, async (req, res) => {
   }
 
   try {
-    const result = await sendBulkEmail(subject, message, targetGroup);
+    const result = await sendBulkEmail(subject, message, targetGroup, imageBase64, imageMimeType);
     res.json({
       ...result,
       message: `Email sent to ${result.successCount} of ${result.total} recipients`,

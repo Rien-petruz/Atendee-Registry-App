@@ -494,6 +494,12 @@ components:
         targetGroup:
           type: string
           enum: [all, newcomers, returning]
+        imageBase64:
+          type: string
+          description: Base64-encoded image to embed in the email body
+        imageMimeType:
+          type: string
+          description: MIME type of the image (e.g. image/png, image/jpeg)
       required:
         - subject
         - message

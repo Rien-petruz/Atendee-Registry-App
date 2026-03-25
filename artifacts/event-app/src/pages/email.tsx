@@ -1,11 +1,11 @@
 import * as React from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Eye, PenLine, Info, AlertCircle, CheckCircle2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Send, Eye, PenLine, Info, AlertCircle, CheckCircle2, ImagePlus, X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,20 @@ const emailSchema = z.object({
 
 type EmailFormValues = z.infer<typeof emailSchema>;
 
+interface ImageData {
+  base64: string;
+  mimeType: string;
+  previewUrl: string;
+  fileName: string;
+}
+
 export default function Email() {
   const [isPreview, setIsPreview] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: number; failed: number; total: number } | null>(null);
-  
+  const [image, setImage] = useState<ImageData | null>(null);
+  const [imageDragOver, setImageDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { toast } = useToast();
   const apiOpts = getApiOptions();
   const { mutate: sendBulkEmail, isPending } = useSendEmail(apiOpts);
@@ -46,21 +56,50 @@ export default function Email() {
   const watchSubject = watch("subject");
   const watchTarget = watch("targetGroup");
 
+  const handleImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file (PNG, JPG, GIF, WebP).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Image must be under 5MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const base64 = dataUrl.split(",")[1];
+      setImage({ base64, mimeType: file.type, previewUrl: dataUrl, fileName: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageFile(file);
+    e.target.value = "";
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setImageDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleImageFile(file);
+  };
+
   const onSubmit = (data: EmailFormValues) => {
     setSendResult(null);
     sendBulkEmail(
-      { data },
+      {
+        data: {
+          ...data,
+          ...(image ? { imageBase64: image.base64, imageMimeType: image.mimeType } : {}),
+        } as any,
+      },
       {
         onSuccess: (res) => {
-          setSendResult({
-            success: res.successCount,
-            failed: res.failedCount,
-            total: res.total
-          });
-          toast({
-            title: "Emails Sent",
-            description: res.message,
-          });
+          setSendResult({ success: res.successCount, failed: res.failedCount, total: res.total });
+          toast({ title: "Emails Sent", description: res.message });
         },
         onError: (err: any) => {
           toast({
@@ -73,13 +112,11 @@ export default function Email() {
     );
   };
 
-  const generatePreview = (text: string) => {
-    if (!text) return "";
-    return text.replace(/{{name}}/g, "Jane Doe").replace(/{{email}}/g, "jane@example.com");
-  };
+  const generatePreview = (text: string) =>
+    text ? text.replace(/{{name}}/g, "Jane Doe").replace(/{{email}}/g, "jane@example.com") : "";
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="max-w-5xl mx-auto space-y-8"
@@ -91,7 +128,7 @@ export default function Email() {
 
       {sendResult && (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-          <Card className="border-emerald-500/30 bg-emerald-500/10 mb-8 overflow-hidden relative">
+          <Card className="border-emerald-500/30 bg-emerald-500/10 overflow-hidden relative">
             <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500" />
             <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6 justify-between">
               <div className="flex items-center gap-4">
@@ -144,7 +181,6 @@ export default function Email() {
             </CardHeader>
             <CardContent className="pt-6">
               <form id="email-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                
                 <AnimatePresence mode="wait">
                   {!isPreview ? (
                     <motion.div
@@ -160,12 +196,7 @@ export default function Email() {
                         <div className="grid grid-cols-3 gap-3">
                           {(["all", "newcomers", "returning"] as const).map((type) => (
                             <label key={type} className="cursor-pointer">
-                              <input 
-                                type="radio" 
-                                value={type} 
-                                className="sr-only peer"
-                                {...register("targetGroup")} 
-                              />
+                              <input type="radio" value={type} className="sr-only peer" {...register("targetGroup")} />
                               <div className="flex items-center justify-center p-4 rounded-xl border border-white/10 bg-black/20 text-center peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary hover:bg-white/5 transition-all h-full">
                                 <span className="font-medium capitalize">{type}</span>
                               </div>
@@ -195,10 +226,58 @@ export default function Email() {
                         <textarea
                           id="message"
                           {...register("message")}
-                          className={`flex min-h-[300px] w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary resize-y ${errors.message ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                          className={`flex min-h-[240px] w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary resize-y ${errors.message ? "border-destructive focus-visible:ring-destructive" : ""}`}
                           placeholder="Write your email here..."
                         />
                         {errors.message && <p className="text-sm text-destructive">{errors.message.message}</p>}
+                      </div>
+
+                      {/* Image Upload */}
+                      <div className="space-y-3">
+                        <Label>Attach Image <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                        {image ? (
+                          <div className="relative flex items-center gap-4 p-4 bg-black/30 border border-white/10 rounded-xl">
+                            <img
+                              src={image.previewUrl}
+                              alt="Selected"
+                              className="w-20 h-20 object-cover rounded-lg border border-white/10 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{image.fileName}</p>
+                              <p className="text-xs text-muted-foreground mt-1">Will appear below the message in each email</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setImage(null)}
+                              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-destructive/20 hover:text-destructive transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
+                            onDragLeave={() => setImageDragOver(false)}
+                            onDrop={onDrop}
+                            className={`flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all ${imageDragOver ? "border-primary bg-primary/10" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"}`}
+                          >
+                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                              <ImagePlus className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-medium">Click to upload or drag & drop</p>
+                              <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF, WebP — max 5MB</p>
+                            </div>
+                          </div>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={onFileInputChange}
+                        />
                       </div>
                     </motion.div>
                   ) : (
@@ -223,14 +302,23 @@ export default function Email() {
                           <div className="text-sm"><span className="font-semibold text-zinc-600 w-16 inline-block">To:</span> {watchTarget === 'all' ? 'All Attendees' : watchTarget === 'newcomers' ? 'Newcomers' : 'Returning Attendees'}</div>
                           <div className="text-sm"><span className="font-semibold text-zinc-600 w-16 inline-block">Subject:</span> {watchSubject || "(No subject)"}</div>
                         </div>
-                        <div className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-zinc-800 min-h-[200px]">
+                        <div className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-zinc-800 min-h-[150px]">
                           {generatePreview(watchMessage) || <span className="text-zinc-400 italic">Message body empty...</span>}
                         </div>
+                        {image && (
+                          <div className="pt-4 text-center">
+                            <img
+                              src={image.previewUrl}
+                              alt="Attached"
+                              className="max-w-full rounded-lg inline-block border border-zinc-200"
+                              style={{ maxHeight: 300 }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-
               </form>
             </CardContent>
           </Card>
@@ -260,10 +348,10 @@ export default function Email() {
             </CardContent>
           </Card>
 
-          <Button 
-            type="submit" 
-            form="email-form" 
-            className="w-full h-14 text-lg font-bold gap-2" 
+          <Button
+            type="submit"
+            form="email-form"
+            className="w-full h-14 text-lg font-bold gap-2"
             variant="gradient"
             isLoading={isPending}
           >
