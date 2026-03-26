@@ -20,6 +20,7 @@ import type {
   AdminUser,
   Attendee,
   AttendeesResponse,
+  EmailCampaignsResponse,
   ErrorResponse,
   ExportAttendeesParams,
   GetAttendeesParams,
@@ -864,6 +865,81 @@ export const useTestSmtpSettings = <
 > => {
   return useMutation(getTestSmtpSettingsMutationOptions(options));
 };
+
+/**
+ * @summary Get email campaign history
+ */
+export const getGetEmailHistoryUrl = () => {
+  return `/api/email/history`;
+};
+
+export const getEmailHistory = async (
+  options?: RequestInit,
+): Promise<EmailCampaignsResponse> => {
+  return customFetch<EmailCampaignsResponse>(getGetEmailHistoryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEmailHistoryQueryKey = () => {
+  return [`/api/email/history`] as const;
+};
+
+export const getGetEmailHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmailHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetEmailHistoryQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmailHistory>>> = ({
+    signal,
+  }) => getEmailHistory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmailHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmailHistory>>
+>;
+export type GetEmailHistoryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get email campaign history
+ */
+
+export function useGetEmailHistory<
+  TData = Awaited<ReturnType<typeof getEmailHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmailHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Send bulk email to attendees

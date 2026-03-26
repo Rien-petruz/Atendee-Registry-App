@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { attendeesTable } from "@workspace/db";
-import { eq, ilike, or, and, desc, asc, count } from "drizzle-orm";
+import { eq, ilike, or, and, desc, asc, count, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 
 const router: IRouter = Router();
@@ -48,6 +48,8 @@ router.get("/", requireAuth, async (req, res) => {
     sort = "newest",
     page = "1",
     limit = "20",
+    month = "",
+    year = "",
   } = req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -69,6 +71,16 @@ router.get("/", requireAuth, async (req, res) => {
     conditions.push(eq(attendeesTable.isNewcomer, true));
   } else if (filter === "returning") {
     conditions.push(eq(attendeesTable.isNewcomer, false));
+  }
+
+  const monthNum = parseInt(month, 10);
+  const yearNum = parseInt(year, 10);
+
+  if (monthNum >= 1 && monthNum <= 12) {
+    conditions.push(sql`EXTRACT(MONTH FROM ${attendeesTable.createdAt}) = ${monthNum}`);
+  }
+  if (yearNum > 0) {
+    conditions.push(sql`EXTRACT(YEAR FROM ${attendeesTable.createdAt}) = ${yearNum}`);
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

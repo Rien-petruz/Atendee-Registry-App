@@ -110,6 +110,24 @@ export interface SendEmailRequest {
   /** @minLength 1 */
   message: string;
   targetGroup: SendEmailRequestTargetGroup;
+  /** Base64-encoded image to embed in the email body */
+  imageBase64?: string;
+  /** MIME type of the image (e.g. image/png, image/jpeg) */
+  imageMimeType?: string;
+}
+
+export interface EmailCampaign {
+  id: number;
+  subject: string;
+  targetGroup: string;
+  successCount: number;
+  failedCount: number;
+  total: number;
+  sentAt: string;
+}
+
+export interface EmailCampaignsResponse {
+  campaigns: EmailCampaign[];
 }
 
 export interface SendEmailResponse {
@@ -143,6 +161,16 @@ export type GetAttendeesParams = {
    * @maximum 100
    */
   limit?: number;
+  /**
+   * Filter by month (1-12)
+   * @minimum 1
+   * @maximum 12
+   */
+  month?: number;
+  /**
+   * Filter by year (e.g. 2025)
+   */
+  year?: number;
 };
 
 export type GetAttendeesFilter =

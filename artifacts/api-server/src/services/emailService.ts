@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import { db } from "@workspace/db";
-import { smtpSettingsTable, attendeesTable } from "@workspace/db";
+import { smtpSettingsTable, attendeesTable, emailCampaignsTable } from "@workspace/db";
 import { decrypt } from "../lib/crypto.js";
 import { eq, ilike, or } from "drizzle-orm";
 
@@ -90,5 +90,18 @@ export async function sendBulkEmail(
     }
   }
 
-  return { successCount, failedCount, total: recipients.length };
+  const result = { successCount, failedCount, total: recipients.length };
+
+  try {
+    await db.insert(emailCampaignsTable).values({
+      subject,
+      targetGroup,
+      successCount: result.successCount,
+      failedCount: result.failedCount,
+      total: result.total,
+    });
+  } catch {
+  }
+
+  return result;
 }

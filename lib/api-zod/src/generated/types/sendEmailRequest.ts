@@ -13,4 +13,8 @@ export interface SendEmailRequest {
   /** @minLength 1 */
   message: string;
   targetGroup: SendEmailRequestTargetGroup;
+  /** Base64-encoded image to embed in the email body */
+  imageBase64?: string;
+  /** MIME type of the image (e.g. image/png, image/jpeg) */
+  imageMimeType?: string;
 }

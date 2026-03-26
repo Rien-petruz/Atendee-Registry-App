@@ -32,4 +32,14 @@ export type GetAttendeesParams = {
    * @maximum 100
    */
   limit?: number;
+  /**
+   * Filter by month (1-12)
+   * @minimum 1
+   * @maximum 12
+   */
+  month?: number;
+  /**
+   * Filter by year (e.g. 2025)
+   */
+  year?: number;
 };

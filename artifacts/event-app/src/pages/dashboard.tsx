@@ -6,9 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { 
-  Search, Users, UserPlus, UserCheck, Download, 
-  ArrowUpDown, ChevronLeft, ChevronRight, Filter, Plus, X
+import {
+  Search, Users, UserPlus, UserCheck, Download,
+  ArrowUpDown, ChevronLeft, ChevronRight, Filter, Plus, Calendar, CalendarDays
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,9 +18,21 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from "@/components/ui/dialog";
-import { useGetAttendees, useExportAttendees, useRegisterAttendee, getGetAttendeesQueryKey, GetAttendeesFilter, GetAttendeesSort } from "@workspace/api-client-react";
+import {
+  useGetAttendees,
+  useExportAttendees,
+  useRegisterAttendee,
+  getGetAttendeesQueryKey,
+  GetAttendeesFilter,
+  GetAttendeesSort
+} from "@workspace/api-client-react";
 import { getApiOptions } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 const addAttendeeSchema = z.object({
   fullName: z.string().min(2, "Full name is required"),
@@ -56,10 +68,7 @@ function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean; onClos
     );
   };
 
-  const handleClose = () => {
-    reset();
-    onClose();
-  };
+  const handleClose = () => { reset(); onClose(); };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -75,50 +84,26 @@ function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean; onClos
             Manually add an attendee to the registry.
           </DialogDescription>
         </DialogHeader>
-
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 mt-2">
           <div className="space-y-2">
             <Label htmlFor="add-fullName">Full Name <span className="text-destructive">*</span></Label>
-            <Input
-              id="add-fullName"
-              placeholder="e.g. John Smith"
-              {...register("fullName")}
-              className={`bg-black/30 border-white/10 ${errors.fullName ? "border-destructive" : ""}`}
-            />
+            <Input id="add-fullName" placeholder="e.g. John Smith" {...register("fullName")}
+              className={`bg-black/30 border-white/10 ${errors.fullName ? "border-destructive" : ""}`} />
             {errors.fullName && <p className="text-xs text-destructive">{errors.fullName.message}</p>}
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="add-email">Email Address <span className="text-destructive">*</span></Label>
-            <Input
-              id="add-email"
-              type="email"
-              placeholder="e.g. john@example.com"
-              {...register("email")}
-              className={`bg-black/30 border-white/10 ${errors.email ? "border-destructive" : ""}`}
-            />
+            <Input id="add-email" type="email" placeholder="e.g. john@example.com" {...register("email")}
+              className={`bg-black/30 border-white/10 ${errors.email ? "border-destructive" : ""}`} />
             {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="add-phone">
-              Phone Number <span className="text-muted-foreground text-xs">(optional)</span>
-            </Label>
-            <Input
-              id="add-phone"
-              placeholder="e.g. +1 555 000 0000"
-              {...register("phoneNumber")}
-              className="bg-black/30 border-white/10"
-            />
+            <Label htmlFor="add-phone">Phone Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+            <Input id="add-phone" placeholder="e.g. +1 555 000 0000" {...register("phoneNumber")} className="bg-black/30 border-white/10" />
           </div>
-
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1 border-white/10" onClick={handleClose}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="gradient" className="flex-1" isLoading={isPending}>
-              Add Attendee
-            </Button>
+            <Button type="button" variant="outline" className="flex-1 border-white/10" onClick={handleClose}>Cancel</Button>
+            <Button type="submit" variant="gradient" className="flex-1" isLoading={isPending}>Add Attendee</Button>
           </div>
         </form>
       </DialogContent>
@@ -127,34 +112,39 @@ function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean; onClos
 }
 
 export default function Dashboard() {
+  const now = new Date();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<GetAttendeesFilter>("all");
   const [sort, setSort] = useState<GetAttendeesSort>("newest");
   const [page, setPage] = useState(1);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const limit = 10;
 
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 500);
+    const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 500);
     return () => clearTimeout(timer);
   }, [search]);
 
   const apiOpts = getApiOptions();
 
   const { data, isLoading } = useGetAttendees(
-    { page, limit, filter: filter !== "all" ? filter : undefined, sort, search: debouncedSearch || undefined },
+    {
+      page, limit, filter: filter !== "all" ? filter : undefined,
+      sort, search: debouncedSearch || undefined,
+      month: selectedMonth, year: selectedYear,
+    },
     apiOpts
   );
 
-  const { data: allStats } = useGetAttendees({ filter: "all", limit: 1 }, apiOpts);
-  const { data: newStats } = useGetAttendees({ filter: "newcomers", limit: 1 }, apiOpts);
-  const { data: retStats } = useGetAttendees({ filter: "returning", limit: 1 }, apiOpts);
+  const { data: allTimeStats } = useGetAttendees({ filter: "all", limit: 1 }, apiOpts);
+  const { data: monthAllStats } = useGetAttendees({ filter: "all", limit: 1, month: selectedMonth, year: selectedYear }, apiOpts);
+  const { data: monthNewStats } = useGetAttendees({ filter: "newcomers", limit: 1, month: selectedMonth, year: selectedYear }, apiOpts);
+  const { data: monthRetStats } = useGetAttendees({ filter: "returning", limit: 1, month: selectedMonth, year: selectedYear }, apiOpts);
 
   const { refetch: exportCsv, isFetching: isExporting } = useExportAttendees(
     { filter: filter !== "all" ? filter : undefined },
@@ -177,10 +167,41 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: getGetAttendeesQueryKey() });
   };
 
+  const currentYearRange = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
+
   const statCards = [
-    { label: "Total Attendees", value: allStats?.total || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "Newcomers", value: newStats?.total || 0, icon: UserPlus, color: "text-accent", bg: "bg-accent/10" },
-    { label: "Returning", value: retStats?.total || 0, icon: UserCheck, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    {
+      label: "All-Time Attendees",
+      value: allTimeStats?.total ?? 0,
+      icon: Users,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      badge: null,
+    },
+    {
+      label: `${MONTHS[selectedMonth - 1]} Total`,
+      value: monthAllStats?.total ?? 0,
+      icon: CalendarDays,
+      color: "text-violet-400",
+      bg: "bg-violet-500/10",
+      badge: null,
+    },
+    {
+      label: `${MONTHS[selectedMonth - 1]} Newcomers`,
+      value: monthNewStats?.total ?? 0,
+      icon: UserPlus,
+      color: "text-accent",
+      bg: "bg-accent/10",
+      badge: null,
+    },
+    {
+      label: `${MONTHS[selectedMonth - 1]} Returning`,
+      value: monthRetStats?.total ?? 0,
+      icon: UserCheck,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+      badge: null,
+    },
   ];
 
   return (
@@ -195,32 +216,58 @@ export default function Dashboard() {
           <p className="text-muted-foreground mt-1">Manage and view your church attendees.</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            onClick={() => setShowAddDialog(true)}
-            variant="gradient"
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Attendee
+          <Button onClick={() => setShowAddDialog(true)} variant="gradient" className="gap-2">
+            <Plus className="w-4 h-4" /> Add Attendee
           </Button>
           <Button onClick={handleExport} isLoading={isExporting} variant="outline" className="gap-2 border-white/10 hover:bg-white/5">
-            <Download className="w-4 h-4" />
-            Export CSV
+            <Download className="w-4 h-4" /> Export CSV
           </Button>
         </div>
       </div>
 
+      {/* Month / Year Selector */}
+      <Card className="glass-panel border-white/5">
+        <CardContent className="p-4 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Calendar className="w-4 h-4" />
+            Viewing month:
+          </div>
+          <div className="flex bg-black/40 p-1 rounded-lg border border-white/5 overflow-x-auto">
+            {MONTHS.map((m, i) => (
+              <button
+                key={m}
+                onClick={() => { setSelectedMonth(i + 1); setPage(1); }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${selectedMonth === i + 1 ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:text-white hover:bg-white/5"}`}
+              >
+                {m.slice(0, 3)}
+              </button>
+            ))}
+          </div>
+          <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
+            {currentYearRange.map((y) => (
+              <button
+                key={y}
+                onClick={() => { setSelectedYear(y); setPage(1); }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${selectedYear === y ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:text-white hover:bg-white/5"}`}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map((stat, i) => (
           <Card key={i} className="glass-panel border-white/5">
-            <CardContent className="p-6 flex items-center justify-between">
+            <CardContent className="p-5 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                <p className="text-xs font-medium text-muted-foreground leading-tight">{stat.label}</p>
                 <h3 className="text-3xl font-display font-bold mt-2">{stat.value.toLocaleString()}</h3>
               </div>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.bg}`}>
-                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${stat.bg}`}>
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
               </div>
             </CardContent>
           </Card>
@@ -252,7 +299,6 @@ export default function Dashboard() {
                 </button>
               ))}
             </div>
-
             <button
               onClick={() => setSort(sort === "newest" ? "oldest" : "newest")}
               className="flex items-center gap-2 px-4 py-2 bg-black/40 border border-white/5 rounded-lg text-sm font-medium hover:bg-white/5 transition-colors whitespace-nowrap"
@@ -290,8 +336,8 @@ export default function Dashboard() {
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center text-muted-foreground">
                     <Filter className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p className="font-medium">No attendees found</p>
-                    <p className="text-sm mt-1 opacity-60">Try adjusting your filters or add one manually.</p>
+                    <p className="font-medium">No attendees found for {MONTHS[selectedMonth - 1]} {selectedYear}</p>
+                    <p className="text-sm mt-1 opacity-60">Try a different month, filter, or add one manually.</p>
                   </td>
                 </tr>
               ) : (
@@ -326,22 +372,10 @@ export default function Dashboard() {
               <span className="text-foreground font-medium">{data.total}</span> entries
             </span>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-white/10"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
+              <Button variant="outline" size="sm" className="border-white/10" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                 <ChevronLeft className="w-4 h-4 mr-1" /> Prev
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-white/10"
-                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-                disabled={page === data.totalPages}
-              >
+              <Button variant="outline" size="sm" className="border-white/10" onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))} disabled={page === data.totalPages}>
                 Next <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -349,11 +383,7 @@ export default function Dashboard() {
         )}
       </Card>
 
-      <AddAttendeeDialog
-        open={showAddDialog}
-        onClose={() => setShowAddDialog(false)}
-        onSuccess={handleAttendeeAdded}
-      />
+      <AddAttendeeDialog open={showAddDialog} onClose={() => setShowAddDialog(false)} onSuccess={handleAttendeeAdded} />
     </motion.div>
   );
 }

@@ -1,8 +1,18 @@
 import { Router, type IRouter } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { sendBulkEmail } from "../services/emailService.js";
+import { db, emailCampaignsTable } from "@workspace/db";
+import { desc } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+router.get("/history", requireAuth, async (req, res) => {
+  const campaigns = await db
+    .select()
+    .from(emailCampaignsTable)
+    .orderBy(desc(emailCampaignsTable.sentAt));
+  res.json({ campaigns });
+});
 
 router.post("/send", requireAuth, async (req, res) => {
   const { subject, message, targetGroup, imageBase64, imageMimeType } = req.body;

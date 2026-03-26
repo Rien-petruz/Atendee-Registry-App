@@ -4,14 +4,16 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Eye, PenLine, Info, AlertCircle, CheckCircle2, ImagePlus, X } from "lucide-react";
+import { Send, Eye, PenLine, Info, AlertCircle, CheckCircle2, ImagePlus, X, History, MailCheck, MailX, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useSendEmail, SendEmailRequestTargetGroup } from "@workspace/api-client-react";
+import { useSendEmail, useGetEmailHistory } from "@workspace/api-client-react";
 import { getApiOptions } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 const emailSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
@@ -38,6 +40,7 @@ export default function Email() {
   const { toast } = useToast();
   const apiOpts = getApiOptions();
   const { mutate: sendBulkEmail, isPending } = useSendEmail(apiOpts);
+  const { data: historyData, refetch: refetchHistory } = useGetEmailHistory(apiOpts);
 
   const {
     register,
@@ -100,6 +103,7 @@ export default function Email() {
         onSuccess: (res) => {
           setSendResult({ success: res.successCount, failed: res.failedCount, total: res.total });
           toast({ title: "Emails Sent", description: res.message });
+          refetchHistory();
         },
         onError: (err: any) => {
           toast({
@@ -360,6 +364,67 @@ export default function Email() {
           </Button>
         </div>
       </div>
+      {/* Campaign History */}
+      <Card className="glass-panel border-white/5 overflow-hidden">
+        <CardHeader className="border-b border-white/5 pb-4">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <History className="w-5 h-5 text-muted-foreground" />
+            Campaign History
+          </CardTitle>
+        </CardHeader>
+        <div className="overflow-x-auto">
+          {!historyData?.campaigns?.length ? (
+            <div className="py-14 text-center text-muted-foreground">
+              <History className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p className="font-medium">No campaigns sent yet</p>
+              <p className="text-sm mt-1 opacity-60">Your sent campaigns will appear here.</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-muted-foreground uppercase bg-black/20 border-b border-white/5">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Subject</th>
+                  <th className="px-6 py-4 font-medium">Audience</th>
+                  <th className="px-6 py-4 font-medium">Total</th>
+                  <th className="px-6 py-4 font-medium">Delivered</th>
+                  <th className="px-6 py-4 font-medium">Failed</th>
+                  <th className="px-6 py-4 font-medium">Sent At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {historyData.campaigns.map((c) => (
+                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-6 py-4 font-medium max-w-[220px] truncate">{c.subject}</td>
+                    <td className="px-6 py-4">
+                      <Badge variant={c.targetGroup === "newcomers" ? "success" : c.targetGroup === "returning" ? "secondary" : "outline"} className="capitalize">
+                        {c.targetGroup}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Users className="w-3.5 h-3.5" /> {c.total}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <MailCheck className="w-3.5 h-3.5" /> {c.successCount}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`flex items-center gap-1.5 font-medium ${c.failedCount > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                        <MailX className="w-3.5 h-3.5" /> {c.failedCount}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
+                      {format(new Date(c.sentAt), "MMM d, yyyy h:mm a")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Card>
     </motion.div>
   );
 }

@@ -159,6 +159,18 @@ paths:
             minimum: 1
             maximum: 100
           description: Items per page
+        - name: month
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+          description: Filter by month (1-12)
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Filter by year (e.g. 2025)
       responses:
         "200":
           description: List of attendees
@@ -260,6 +272,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /email/history:
+    get:
+      operationId: getEmailHistory
+      tags: [email]
+      summary: Get email campaign history
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of sent campaigns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailCampaignsResponse"
         "401":
           description: Unauthorized
           content:
@@ -504,6 +537,43 @@ components:
         - subject
         - message
         - targetGroup
+
+    EmailCampaign:
+      type: object
+      properties:
+        id:
+          type: integer
+        subject:
+          type: string
+        targetGroup:
+          type: string
+        successCount:
+          type: integer
+        failedCount:
+          type: integer
+        total:
+          type: integer
+        sentAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - subject
+        - targetGroup
+        - successCount
+        - failedCount
+        - total
+        - sentAt
+
+    EmailCampaignsResponse:
+      type: object
+      properties:
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailCampaign"
+      required:
+        - campaigns
 
     SendEmailResponse:
       type: object

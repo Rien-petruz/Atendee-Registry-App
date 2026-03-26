@@ -70,6 +70,8 @@ export const RegisterAttendeeBody = zod.object({
 
 export const getAttendeesQueryLimitMax = 100;
 
+export const getAttendeesQueryMonthMax = 12;
+
 export const GetAttendeesQueryParams = zod.object({
   search: zod.coerce.string().optional().describe("Search by name or email"),
   filter: zod
@@ -84,6 +86,13 @@ export const GetAttendeesQueryParams = zod.object({
     .max(getAttendeesQueryLimitMax)
     .optional()
     .describe("Items per page"),
+  month: zod.coerce
+    .number()
+    .min(1)
+    .max(getAttendeesQueryMonthMax)
+    .optional()
+    .describe("Filter by month (1-12)"),
+  year: zod.coerce.number().optional().describe("Filter by year (e.g. 2025)"),
 });
 
 export const GetAttendeesResponse = zod.object({
@@ -148,6 +157,23 @@ export const TestSmtpSettingsResponse = zod.object({
 });
 
 /**
+ * @summary Get email campaign history
+ */
+export const GetEmailHistoryResponse = zod.object({
+  campaigns: zod.array(
+    zod.object({
+      id: zod.number(),
+      subject: zod.string(),
+      targetGroup: zod.string(),
+      successCount: zod.number(),
+      failedCount: zod.number(),
+      total: zod.number(),
+      sentAt: zod.date(),
+    }),
+  ),
+});
+
+/**
  * @summary Send bulk email to attendees
  */
 
@@ -155,6 +181,14 @@ export const SendEmailBody = zod.object({
   subject: zod.string().min(1),
   message: zod.string().min(1),
   targetGroup: zod.enum(["all", "newcomers", "returning"]),
+  imageBase64: zod
+    .string()
+    .optional()
+    .describe("Base64-encoded image to embed in the email body"),
+  imageMimeType: zod
+    .string()
+    .optional()
+    .describe("MIME type of the image (e.g. image\/png, image\/jpeg)"),
 });
 
 export const SendEmailResponse = zod.object({
