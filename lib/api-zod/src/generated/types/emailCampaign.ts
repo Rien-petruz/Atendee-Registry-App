@@ -10,6 +10,8 @@ export interface EmailCampaign {
   id: number;
   subject: string;
   targetGroup: string;
+  filterMonth?: number | null;
+  filterYear?: number | null;
   successCount: number;
   failedCount: number;
   total: number;

@@ -15,7 +15,7 @@ router.get("/history", requireAuth, async (req, res) => {
 });
 
 router.post("/send", requireAuth, async (req, res) => {
-  const { subject, message, targetGroup, imageBase64, imageMimeType } = req.body;
+  const { subject, message, targetGroup, imageBase64, imageMimeType, filterMonth, filterYear } = req.body;
 
   if (!subject || !message || !targetGroup) {
     res.status(400).json({ error: "Bad Request", message: "subject, message, and targetGroup are required" });
@@ -28,7 +28,7 @@ router.post("/send", requireAuth, async (req, res) => {
   }
 
   try {
-    const result = await sendBulkEmail(subject, message, targetGroup, imageBase64, imageMimeType);
+    const result = await sendBulkEmail(subject, message, targetGroup, imageBase64, imageMimeType, filterMonth, filterYear);
     res.json({
       ...result,
       message: `Email sent to ${result.successCount} of ${result.total} recipients`,

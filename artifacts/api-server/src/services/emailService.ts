@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import { db } from "@workspace/db";
 import { smtpSettingsTable, attendeesTable, emailCampaignsTable } from "@workspace/db";
 import { decrypt } from "../lib/crypto.js";
-import { eq, ilike, or } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export async function getSmtpTransport() {
   const [settings] = await db.select().from(smtpSettingsTable).limit(1);
@@ -37,21 +37,30 @@ export async function sendBulkEmail(
   messageTemplate: string,
   targetGroup: "all" | "newcomers" | "returning",
   imageBase64?: string,
-  imageMimeType?: string
+  imageMimeType?: string,
+  filterMonth?: number,
+  filterYear?: number
 ): Promise<{ successCount: number; failedCount: number; total: number }> {
   const [smtpSettings] = await db.select().from(smtpSettingsTable).limit(1);
   if (!smtpSettings) throw new Error("SMTP not configured");
 
-  let query = db.select().from(attendeesTable);
+  const conditions: any[] = [];
 
-  let recipients;
   if (targetGroup === "newcomers") {
-    recipients = await db.select().from(attendeesTable).where(eq(attendeesTable.isNewcomer, true));
+    conditions.push(eq(attendeesTable.isNewcomer, true));
   } else if (targetGroup === "returning") {
-    recipients = await db.select().from(attendeesTable).where(eq(attendeesTable.isNewcomer, false));
-  } else {
-    recipients = await db.select().from(attendeesTable);
+    conditions.push(eq(attendeesTable.isNewcomer, false));
   }
+
+  if (filterMonth && filterMonth >= 1 && filterMonth <= 12) {
+    conditions.push(sql`EXTRACT(MONTH FROM ${attendeesTable.createdAt}) = ${filterMonth}`);
+  }
+  if (filterYear && filterYear > 0) {
+    conditions.push(sql`EXTRACT(YEAR FROM ${attendeesTable.createdAt}) = ${filterYear}`);
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const recipients = await db.select().from(attendeesTable).where(whereClause);
 
   const transport = await getSmtpTransport();
 
@@ -96,6 +105,8 @@ export async function sendBulkEmail(
     await db.insert(emailCampaignsTable).values({
       subject,
       targetGroup,
+      filterMonth: filterMonth ?? null,
+      filterYear: filterYear ?? null,
       successCount: result.successCount,
       failedCount: result.failedCount,
       total: result.total,

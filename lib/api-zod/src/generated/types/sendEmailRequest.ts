@@ -17,4 +17,12 @@ export interface SendEmailRequest {
   imageBase64?: string;
   /** MIME type of the image (e.g. image/png, image/jpeg) */
   imageMimeType?: string;
+  /**
+   * Only send to attendees who registered in this month (1-12)
+   * @minimum 1
+   * @maximum 12
+   */
+  filterMonth?: number;
+  /** Only send to attendees who registered in this year */
+  filterYear?: number;
 }

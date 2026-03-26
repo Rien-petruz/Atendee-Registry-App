@@ -4,16 +4,23 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Eye, PenLine, Info, AlertCircle, CheckCircle2, ImagePlus, X, History, MailCheck, MailX, Users } from "lucide-react";
+import {
+  Send, Eye, PenLine, Info, AlertCircle, CheckCircle2,
+  ImagePlus, X, History, MailCheck, MailX, Users, CalendarDays, Globe
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useSendEmail, useGetEmailHistory } from "@workspace/api-client-react";
 import { getApiOptions } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 const emailSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
@@ -31,23 +38,22 @@ interface ImageData {
 }
 
 export default function Email() {
+  const now = new Date();
   const [isPreview, setIsPreview] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: number; failed: number; total: number } | null>(null);
   const [image, setImage] = useState<ImageData | null>(null);
   const [imageDragOver, setImageDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [scope, setScope] = useState<"all-time" | "by-month">("all-time");
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
   const { toast } = useToast();
   const apiOpts = getApiOptions();
   const { mutate: sendBulkEmail, isPending } = useSendEmail(apiOpts);
   const { data: historyData, refetch: refetchHistory } = useGetEmailHistory(apiOpts);
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<EmailFormValues>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
     defaultValues: {
       targetGroup: "all",
@@ -71,16 +77,9 @@ export default function Email() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
-      const base64 = dataUrl.split(",")[1];
-      setImage({ base64, mimeType: file.type, previewUrl: dataUrl, fileName: file.name });
+      setImage({ base64: dataUrl.split(",")[1], mimeType: file.type, previewUrl: dataUrl, fileName: file.name });
     };
     reader.readAsDataURL(file);
-  };
-
-  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleImageFile(file);
-    e.target.value = "";
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -90,6 +89,12 @@ export default function Email() {
     if (file) handleImageFile(file);
   };
 
+  const audienceLabel = () => {
+    const group = watchTarget === "all" ? "All Attendees" : watchTarget === "newcomers" ? "Newcomers" : "Returning Attendees";
+    if (scope === "by-month") return `${MONTHS[selectedMonth - 1]} ${selectedYear} — ${group}`;
+    return `All Time — ${group}`;
+  };
+
   const onSubmit = (data: EmailFormValues) => {
     setSendResult(null);
     sendBulkEmail(
@@ -97,6 +102,7 @@ export default function Email() {
         data: {
           ...data,
           ...(image ? { imageBase64: image.base64, imageMimeType: image.mimeType } : {}),
+          ...(scope === "by-month" ? { filterMonth: selectedMonth, filterYear: selectedYear } : {}),
         } as any,
       },
       {
@@ -106,11 +112,7 @@ export default function Email() {
           refetchHistory();
         },
         onError: (err: any) => {
-          toast({
-            title: "Failed to send",
-            description: err.message || "An error occurred while sending emails.",
-            variant: "destructive",
-          });
+          toast({ title: "Failed to send", description: err.message || "An error occurred.", variant: "destructive" });
         }
       }
     );
@@ -119,12 +121,16 @@ export default function Email() {
   const generatePreview = (text: string) =>
     text ? text.replace(/{{name}}/g, "Jane Doe").replace(/{{email}}/g, "jane@example.com") : "";
 
+  const yearRange = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
+
+  const campaignLabel = (c: { targetGroup: string; filterMonth?: number | null; filterYear?: number | null }) => {
+    const group = c.targetGroup === "all" ? "All" : c.targetGroup === "newcomers" ? "Newcomers" : "Returning";
+    if (c.filterMonth && c.filterYear) return `${MONTHS[c.filterMonth - 1]} ${c.filterYear} — ${group}`;
+    return `All Time — ${group}`;
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-5xl mx-auto space-y-8"
-    >
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-3xl font-display font-bold">Bulk Emailer</h1>
         <p className="text-muted-foreground mt-1">Send personalized messages to your segmented attendees.</p>
@@ -145,14 +151,8 @@ export default function Email() {
                 </div>
               </div>
               <div className="flex gap-6 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-emerald-400">{sendResult.success}</p>
-                  <p className="text-xs text-emerald-400/70 uppercase tracking-wider font-semibold">Delivered</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-destructive">{sendResult.failed}</p>
-                  <p className="text-xs text-destructive/70 uppercase tracking-wider font-semibold">Failed</p>
-                </div>
+                <div><p className="text-2xl font-bold text-emerald-400">{sendResult.success}</p><p className="text-xs text-emerald-400/70 uppercase tracking-wider font-semibold">Delivered</p></div>
+                <div><p className="text-2xl font-bold text-destructive">{sendResult.failed}</p><p className="text-xs text-destructive/70 uppercase tracking-wider font-semibold">Failed</p></div>
               </div>
             </CardContent>
           </Card>
@@ -163,22 +163,14 @@ export default function Email() {
         <div className="lg:col-span-2">
           <Card className="glass-panel border-white/5">
             <CardHeader className="flex flex-row items-center justify-between border-b border-white/5 pb-4">
-              <div>
-                <CardTitle className="text-xl">Compose Campaign</CardTitle>
-              </div>
+              <CardTitle className="text-xl">Compose Campaign</CardTitle>
               <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsPreview(false)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${!isPreview ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-white'}`}
-                >
+                <button type="button" onClick={() => setIsPreview(false)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${!isPreview ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-white'}`}>
                   <PenLine className="w-4 h-4" /> Edit
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsPreview(true)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${isPreview ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-white'}`}
-                >
+                <button type="button" onClick={() => setIsPreview(true)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${isPreview ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-white'}`}>
                   <Eye className="w-4 h-4" /> Preview
                 </button>
               </div>
@@ -187,16 +179,73 @@ export default function Email() {
               <form id="email-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <AnimatePresence mode="wait">
                   {!isPreview ? (
-                    <motion.div
-                      key="editor"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="space-y-6"
-                    >
+                    <motion.div key="editor" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-6">
+
+                      {/* Time Scope */}
                       <div className="space-y-3">
-                        <Label>Target Audience</Label>
+                        <Label>Time Period</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="cursor-pointer">
+                            <input type="radio" className="sr-only peer" checked={scope === "all-time"} onChange={() => setScope("all-time")} />
+                            <div className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-black/20 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary hover:bg-white/5 transition-all">
+                              <Globe className="w-5 h-5 shrink-0" />
+                              <div>
+                                <p className="font-medium text-sm">All Time</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Entire database</p>
+                              </div>
+                            </div>
+                          </label>
+                          <label className="cursor-pointer">
+                            <input type="radio" className="sr-only peer" checked={scope === "by-month"} onChange={() => setScope("by-month")} />
+                            <div className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-black/20 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary hover:bg-white/5 transition-all">
+                              <CalendarDays className="w-5 h-5 shrink-0" />
+                              <div>
+                                <p className="font-medium text-sm">Specific Month</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Filter by registration month</p>
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+
+                        {/* Month/Year picker — only shown when by-month */}
+                        <AnimatePresence>
+                          {scope === "by-month" && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3 mt-2">
+                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Select Month & Year</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {MONTHS.map((m, i) => (
+                                    <button key={m} type="button" onClick={() => setSelectedMonth(i + 1)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedMonth === i + 1 ? "bg-primary text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"}`}>
+                                      {m.slice(0, 3)}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="flex gap-1.5">
+                                  {yearRange.map((y) => (
+                                    <button key={y} type="button" onClick={() => setSelectedYear(y)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedYear === y ? "bg-primary text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"}`}>
+                                      {y}
+                                    </button>
+                                  ))}
+                                </div>
+                                <p className="text-xs text-primary font-medium">
+                                  Targeting attendees registered in {MONTHS[selectedMonth - 1]} {selectedYear}
+                                </p>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Target Group */}
+                      <div className="space-y-3">
+                        <Label>Target Group</Label>
                         <div className="grid grid-cols-3 gap-3">
                           {(["all", "newcomers", "returning"] as const).map((type) => (
                             <label key={type} className="cursor-pointer">
@@ -209,30 +258,27 @@ export default function Email() {
                         </div>
                       </div>
 
+                      {/* Subject */}
                       <div className="space-y-2">
                         <Label htmlFor="subject">Subject Line</Label>
-                        <Input
+                        <input
                           id="subject"
                           placeholder="Important update from TNP Registry"
                           {...register("subject")}
-                          className={errors.subject ? "border-destructive" : ""}
+                          className={`flex w-full rounded-xl border bg-black/20 px-4 py-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary ${errors.subject ? "border-destructive" : "border-white/10"}`}
                         />
                         {errors.subject && <p className="text-sm text-destructive">{errors.subject.message}</p>}
                       </div>
 
+                      {/* Message */}
                       <div className="space-y-2">
                         <div className="flex justify-between items-end">
                           <Label htmlFor="message">Message Body</Label>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Info className="w-3 h-3" /> Supports plain text formatting
-                          </span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1"><Info className="w-3 h-3" /> Supports plain text formatting</span>
                         </div>
-                        <textarea
-                          id="message"
-                          {...register("message")}
-                          className={`flex min-h-[240px] w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary resize-y ${errors.message ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                          placeholder="Write your email here..."
-                        />
+                        <textarea id="message" {...register("message")}
+                          className={`flex min-h-[220px] w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary resize-y ${errors.message ? "border-destructive" : ""}`}
+                          placeholder="Write your email here..." />
                         {errors.message && <p className="text-sm text-destructive">{errors.message.message}</p>}
                       </div>
 
@@ -241,31 +287,21 @@ export default function Email() {
                         <Label>Attach Image <span className="text-muted-foreground font-normal">(optional)</span></Label>
                         {image ? (
                           <div className="relative flex items-center gap-4 p-4 bg-black/30 border border-white/10 rounded-xl">
-                            <img
-                              src={image.previewUrl}
-                              alt="Selected"
-                              className="w-20 h-20 object-cover rounded-lg border border-white/10 shrink-0"
-                            />
+                            <img src={image.previewUrl} alt="Selected" className="w-20 h-20 object-cover rounded-lg border border-white/10 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{image.fileName}</p>
                               <p className="text-xs text-muted-foreground mt-1">Will appear below the message in each email</p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setImage(null)}
-                              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-destructive/20 hover:text-destructive transition-colors"
-                            >
+                            <button type="button" onClick={() => setImage(null)}
+                              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-destructive/20 hover:text-destructive transition-colors">
                               <X className="w-4 h-4" />
                             </button>
                           </div>
                         ) : (
-                          <div
-                            onClick={() => fileInputRef.current?.click()}
+                          <div onClick={() => fileInputRef.current?.click()}
                             onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
-                            onDragLeave={() => setImageDragOver(false)}
-                            onDrop={onDrop}
-                            className={`flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all ${imageDragOver ? "border-primary bg-primary/10" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"}`}
-                          >
+                            onDragLeave={() => setImageDragOver(false)} onDrop={onDrop}
+                            className={`flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all ${imageDragOver ? "border-primary bg-primary/10" : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"}`}>
                             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
                               <ImagePlus className="w-6 h-6 text-muted-foreground" />
                             </div>
@@ -275,24 +311,13 @@ export default function Email() {
                             </div>
                           </div>
                         )}
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={onFileInputChange}
-                        />
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ""; }} />
                       </div>
                     </motion.div>
                   ) : (
-                    <motion.div
-                      key="preview"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="bg-white text-black rounded-xl overflow-hidden shadow-2xl border border-white/20"
-                    >
+                    <motion.div key="preview" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}
+                      className="bg-white text-black rounded-xl overflow-hidden shadow-2xl border border-white/20">
                       <div className="bg-zinc-100 border-b border-zinc-200 px-4 py-3 flex gap-2 items-center">
                         <div className="flex gap-1.5">
                           <div className="w-3 h-3 rounded-full bg-red-400"></div>
@@ -303,7 +328,7 @@ export default function Email() {
                       </div>
                       <div className="p-6 space-y-4">
                         <div className="pb-4 border-b border-zinc-200 space-y-1">
-                          <div className="text-sm"><span className="font-semibold text-zinc-600 w-16 inline-block">To:</span> {watchTarget === 'all' ? 'All Attendees' : watchTarget === 'newcomers' ? 'Newcomers' : 'Returning Attendees'}</div>
+                          <div className="text-sm"><span className="font-semibold text-zinc-600 w-16 inline-block">To:</span> {audienceLabel()}</div>
                           <div className="text-sm"><span className="font-semibold text-zinc-600 w-16 inline-block">Subject:</span> {watchSubject || "(No subject)"}</div>
                         </div>
                         <div className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-zinc-800 min-h-[150px]">
@@ -311,12 +336,7 @@ export default function Email() {
                         </div>
                         {image && (
                           <div className="pt-4 text-center">
-                            <img
-                              src={image.previewUrl}
-                              alt="Attached"
-                              className="max-w-full rounded-lg inline-block border border-zinc-200"
-                              style={{ maxHeight: 300 }}
-                            />
+                            <img src={image.previewUrl} alt="Attached" className="max-w-full rounded-lg inline-block border border-zinc-200" style={{ maxHeight: 300 }} />
                           </div>
                         )}
                       </div>
@@ -330,9 +350,7 @@ export default function Email() {
 
         <div className="space-y-6">
           <Card className="glass-panel border-white/5">
-            <CardHeader>
-              <CardTitle className="text-lg">Personalization</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg">Personalization</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">Use these tags to inject attendee data into your message:</p>
               <div className="space-y-2">
@@ -345,25 +363,19 @@ export default function Email() {
                   <span className="text-xs text-muted-foreground">Email Address</span>
                 </div>
               </div>
-              <div className="mt-6 p-4 bg-accent/10 border border-accent/20 rounded-xl flex gap-3">
+              <div className="mt-4 p-4 bg-accent/10 border border-accent/20 rounded-xl flex gap-3">
                 <AlertCircle className="w-5 h-5 text-accent shrink-0 mt-0.5" />
                 <p className="text-xs text-accent/90">Make sure you have configured your SMTP settings before sending campaigns.</p>
               </div>
             </CardContent>
           </Card>
 
-          <Button
-            type="submit"
-            form="email-form"
-            className="w-full h-14 text-lg font-bold gap-2"
-            variant="gradient"
-            isLoading={isPending}
-          >
-            <Send className="w-5 h-5" />
-            Launch Campaign
+          <Button type="submit" form="email-form" className="w-full h-14 text-lg font-bold gap-2" variant="gradient" isLoading={isPending}>
+            <Send className="w-5 h-5" /> Launch Campaign
           </Button>
         </div>
       </div>
+
       {/* Campaign History */}
       <Card className="glass-panel border-white/5 overflow-hidden">
         <CardHeader className="border-b border-white/5 pb-4">
@@ -394,21 +406,15 @@ export default function Email() {
               <tbody className="divide-y divide-white/5">
                 {historyData.campaigns.map((c) => (
                   <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 font-medium max-w-[220px] truncate">{c.subject}</td>
+                    <td className="px-6 py-4 font-medium max-w-[200px] truncate">{c.subject}</td>
                     <td className="px-6 py-4">
-                      <Badge variant={c.targetGroup === "newcomers" ? "success" : c.targetGroup === "returning" ? "secondary" : "outline"} className="capitalize">
-                        {c.targetGroup}
-                      </Badge>
+                      <span className="text-xs font-medium text-muted-foreground">{campaignLabel(c)}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <Users className="w-3.5 h-3.5" /> {c.total}
-                      </span>
+                      <span className="flex items-center gap-1.5 text-muted-foreground"><Users className="w-3.5 h-3.5" /> {c.total}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                        <MailCheck className="w-3.5 h-3.5" /> {c.successCount}
-                      </span>
+                      <span className="flex items-center gap-1.5 text-emerald-400 font-medium"><MailCheck className="w-3.5 h-3.5" /> {c.successCount}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`flex items-center gap-1.5 font-medium ${c.failedCount > 0 ? "text-destructive" : "text-muted-foreground"}`}>

@@ -165,6 +165,8 @@ export const GetEmailHistoryResponse = zod.object({
       id: zod.number(),
       subject: zod.string(),
       targetGroup: zod.string(),
+      filterMonth: zod.number().nullish(),
+      filterYear: zod.number().nullish(),
       successCount: zod.number(),
       failedCount: zod.number(),
       total: zod.number(),
@@ -176,6 +178,8 @@ export const GetEmailHistoryResponse = zod.object({
 /**
  * @summary Send bulk email to attendees
  */
+
+export const sendEmailBodyFilterMonthMax = 12;
 
 export const SendEmailBody = zod.object({
   subject: zod.string().min(1),
@@ -189,6 +193,16 @@ export const SendEmailBody = zod.object({
     .string()
     .optional()
     .describe("MIME type of the image (e.g. image\/png, image\/jpeg)"),
+  filterMonth: zod
+    .number()
+    .min(1)
+    .max(sendEmailBodyFilterMonthMax)
+    .optional()
+    .describe("Only send to attendees who registered in this month (1-12)"),
+  filterYear: zod
+    .number()
+    .optional()
+    .describe("Only send to attendees who registered in this year"),
 });
 
 export const SendEmailResponse = zod.object({

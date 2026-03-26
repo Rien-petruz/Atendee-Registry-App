@@ -533,6 +533,14 @@ components:
         imageMimeType:
           type: string
           description: MIME type of the image (e.g. image/png, image/jpeg)
+        filterMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: Only send to attendees who registered in this month (1-12)
+        filterYear:
+          type: integer
+          description: Only send to attendees who registered in this year
       required:
         - subject
         - message
@@ -547,6 +555,12 @@ components:
           type: string
         targetGroup:
           type: string
+        filterMonth:
+          type: integer
+          nullable: true
+        filterYear:
+          type: integer
+          nullable: true
         successCount:
           type: integer
         failedCount:

@@ -114,12 +114,22 @@ export interface SendEmailRequest {
   imageBase64?: string;
   /** MIME type of the image (e.g. image/png, image/jpeg) */
   imageMimeType?: string;
+  /**
+   * Only send to attendees who registered in this month (1-12)
+   * @minimum 1
+   * @maximum 12
+   */
+  filterMonth?: number;
+  /** Only send to attendees who registered in this year */
+  filterYear?: number;
 }
 
 export interface EmailCampaign {
   id: number;
   subject: string;
   targetGroup: string;
+  filterMonth?: number | null;
+  filterYear?: number | null;
   successCount: number;
   failedCount: number;
   total: number;
