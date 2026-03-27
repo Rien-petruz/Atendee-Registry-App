@@ -27,6 +27,7 @@ export default function Register() {
   const {
     register: registerField,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -86,7 +87,7 @@ export default function Register() {
                 <Button 
                   variant="outline" 
                   className="mt-8"
-                  onClick={() => setIsSuccess(false)}
+                  onClick={() => { setIsSuccess(false); reset(); }}
                 >
                   Register Another Guest
                 </Button>
