@@ -79,9 +79,9 @@ export default function Register() {
                 <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6">
                   <CheckCircle2 className="w-10 h-10 text-emerald-400" />
                 </div>
-                <CardTitle className="text-3xl mb-3">See You There!</CardTitle>
+                <CardTitle className="text-3xl mb-3">You Are Welcome!</CardTitle>
                 <CardDescription className="text-base text-zinc-400 max-w-xs mx-auto">
-                  Your attendance has been recorded for this month. We can't wait to see you!
+                  Your attendance has been recorded for this month. Enjoy God's presence!
                 </CardDescription>
                 <Button 
                   variant="outline" 
