@@ -52,11 +52,12 @@ export async function sendBulkEmail(
     conditions.push(eq(attendeesTable.isNewcomer, false));
   }
 
-  if (filterMonth && filterMonth >= 1 && filterMonth <= 12) {
-    conditions.push(sql`EXTRACT(MONTH FROM ${attendeesTable.createdAt}) = ${filterMonth}`);
-  }
-  if (filterYear && filterYear > 0) {
-    conditions.push(sql`EXTRACT(YEAR FROM ${attendeesTable.createdAt}) = ${filterYear}`);
+  if ((filterMonth && filterMonth >= 1 && filterMonth <= 12) || (filterYear && filterYear > 0)) {
+    const monthCond = filterMonth && filterMonth >= 1 && filterMonth <= 12 ? sql` AND att.month = ${filterMonth}` : sql``;
+    const yearCond = filterYear && filterYear > 0 ? sql` AND att.year = ${filterYear}` : sql``;
+    conditions.push(
+      sql`EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id}${monthCond}${yearCond})`
+    );
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

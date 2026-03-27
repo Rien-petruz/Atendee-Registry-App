@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { attendeesTable } from "@workspace/db";
+import { attendeesTable, attendancesTable } from "@workspace/db";
 import { eq, ilike, or, and, desc, asc, count, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -25,17 +25,35 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const [attendee] = await db
-      .insert(attendeesTable)
-      .values({ fullName, email: email.toLowerCase(), phoneNumber, isNewcomer })
-      .returning();
+    const normalizedEmail = email.toLowerCase();
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
 
-    res.status(201).json(attendee);
-  } catch (err: any) {
-    if (err?.code === "23505") {
-      res.status(409).json({ error: "Conflict", message: "This email is already registered" });
-      return;
+    // Find existing attendee or create a new one
+    let [attendee] = await db
+      .select()
+      .from(attendeesTable)
+      .where(eq(attendeesTable.email, normalizedEmail))
+      .limit(1);
+
+    const isReturning = !!attendee;
+
+    if (!attendee) {
+      [attendee] = await db
+        .insert(attendeesTable)
+        .values({ fullName, email: normalizedEmail, phoneNumber, isNewcomer })
+        .returning();
     }
+
+    // Record attendance for the current month — silently ignored if already recorded
+    await db
+      .insert(attendancesTable)
+      .values({ attendeeId: attendee.id, month: currentMonth, year: currentYear })
+      .onConflictDoNothing();
+
+    res.status(isReturning ? 200 : 201).json(attendee);
+  } catch (err: any) {
     req.log.error({ err }, "Failed to register attendee");
     res.status(500).json({ error: "Internal Server Error", message: "Failed to register attendee" });
   }
@@ -76,11 +94,12 @@ router.get("/", requireAuth, async (req, res) => {
   const monthNum = parseInt(month, 10);
   const yearNum = parseInt(year, 10);
 
-  if (monthNum >= 1 && monthNum <= 12) {
-    conditions.push(sql`EXTRACT(MONTH FROM ${attendeesTable.createdAt}) = ${monthNum}`);
-  }
-  if (yearNum > 0) {
-    conditions.push(sql`EXTRACT(YEAR FROM ${attendeesTable.createdAt}) = ${yearNum}`);
+  if (monthNum >= 1 && monthNum <= 12 || yearNum > 0) {
+    const monthCond = monthNum >= 1 && monthNum <= 12 ? sql` AND att.month = ${monthNum}` : sql``;
+    const yearCond = yearNum > 0 ? sql` AND att.year = ${yearNum}` : sql``;
+    conditions.push(
+      sql`EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id}${monthCond}${yearCond})`
+    );
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

@@ -79,9 +79,9 @@ export default function Register() {
                 <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6">
                   <CheckCircle2 className="w-10 h-10 text-emerald-400" />
                 </div>
-                <CardTitle className="text-3xl mb-3">You're Registered!</CardTitle>
+                <CardTitle className="text-3xl mb-3">See You There!</CardTitle>
                 <CardDescription className="text-base text-zinc-400 max-w-xs mx-auto">
-                  Thank you for securing your spot. We've sent a confirmation to your email. We can't wait to see you there!
+                  Your attendance has been recorded for this month. We can't wait to see you!
                 </CardDescription>
                 <Button 
                   variant="outline" 
@@ -159,7 +159,7 @@ export default function Register() {
                       <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                         <p className="text-sm text-destructive text-center">
                           {/* @ts-ignore - The error object shape might vary based on customFetch */}
-                          {error.message || "Registration failed. Email might already be registered."}
+                          {error.message || "Registration failed. Please check your details and try again."}
                         </p>
                       </div>
                     )}
