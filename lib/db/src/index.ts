@@ -12,7 +12,8 @@ function getConnectionString() {
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL ||
     process.env.STORAGE_POSTGRES_URL ||
-    process.env.STORAGE_POSTGRES_PRISMA_URL;
+    process.env.STORAGE_POSTGRES_PRISMA_URL ||
+    process.env.STORAGE_POSTGRES_URL_NON_POOLING;
 
   if (!conn && process.env.NODE_ENV === "production") {
     console.error("CRITICAL: Database connection string not found in environment variables.");
