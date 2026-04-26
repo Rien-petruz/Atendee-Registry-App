@@ -1,4 +1,4 @@
-export * from "./generated/api";
-export * from "./generated/types";
-export { LoginResponse, SendEmailResponse } from "./generated/api";
-export type { LoginResponse as LoginResponseType, SendEmailResponse as SendEmailResponseType } from "./generated/types";
+export * from "./generated/api.js";
+export * from "./generated/types/index.js";
+export { LoginResponse, SendEmailResponse, HealthCheckResponse } from "./generated/api.js";
+export type { LoginResponse as LoginResponseType, SendEmailResponse as SendEmailResponseType, HealthCheckResponse as HealthCheckResponseType } from "./generated/types/index.js";
