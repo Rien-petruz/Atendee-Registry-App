@@ -31,4 +31,13 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use("/api", router);
 
+// Error handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("API Error:", err);
+  res.status(err.status || 500).json({
+    error: err.name || "Internal Server Error",
+    message: err.message || "An unexpected error occurred",
+  });
+});
+
 export default app;
