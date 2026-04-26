@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
 import { db } from "@workspace/db";
 import { smtpSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -6,7 +6,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { encrypt } from "../lib/crypto.js";
 import { getSmtpTransport } from "../services/emailService.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.get("/smtp", requireAuth, async (req, res) => {
   const [settings] = await db.select().from(smtpSettingsTable).limit(1);

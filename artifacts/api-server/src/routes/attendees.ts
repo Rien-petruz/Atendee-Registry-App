@@ -1,10 +1,10 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
 import { db } from "@workspace/db";
 import { attendeesTable, attendancesTable } from "@workspace/db";
 import { eq, ilike, or, and, desc, asc, count, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.post("/", async (req, res) => {
   const { fullName, email, phoneNumber, isNewcomer } = req.body;

@@ -1,10 +1,10 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { sendBulkEmail } from "../services/emailService.js";
 import { db, emailCampaignsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.get("/history", requireAuth, async (req, res) => {
   const campaigns = await db

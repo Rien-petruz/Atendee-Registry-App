@@ -1,11 +1,11 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
 import bcrypt from "bcrypt";
 import { db } from "@workspace/db";
 import { adminsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, signToken, type AuthRequest } from "../middleware/auth.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
