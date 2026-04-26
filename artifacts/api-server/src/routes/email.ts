@@ -1,12 +1,11 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { sendBulkEmail } from "../services/emailService.js";
-import { db, emailCampaignsTable } from "@workspace/db";
-import { desc } from "drizzle-orm";
+import { db, emailCampaignsTable, desc } from "@workspace/db";
 
 const router = Router();
 
-router.get("/history", requireAuth, async (req, res) => {
+router.get("/history", requireAuth, async (req: any, res: any) => {
   const campaigns = await db
     .select()
     .from(emailCampaignsTable)
@@ -14,7 +13,7 @@ router.get("/history", requireAuth, async (req, res) => {
   res.json({ campaigns });
 });
 
-router.post("/send", requireAuth, async (req, res) => {
+router.post("/send", requireAuth, async (req: any, res: any) => {
   const { subject, message, targetGroup, imageBase64, imageMimeType, filterMonth, filterYear } = req.body;
 
   if (!subject || !message || !targetGroup) {

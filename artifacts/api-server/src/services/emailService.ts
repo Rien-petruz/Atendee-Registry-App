@@ -1,8 +1,6 @@
 import nodemailer from "nodemailer";
-import { db } from "@workspace/db";
-import { smtpSettingsTable, attendeesTable, emailCampaignsTable } from "@workspace/db";
+import { db, smtpSettingsTable, attendeesTable, emailCampaignsTable, eq, and, sql } from "@workspace/db";
 import { decrypt } from "../lib/crypto.js";
-import { eq, and, sql } from "drizzle-orm";
 
 export async function getSmtpTransport() {
   const [settings] = await db.select().from(smtpSettingsTable).limit(1);

@@ -1,12 +1,10 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { attendeesTable, attendancesTable } from "@workspace/db";
-import { eq, ilike, or, and, desc, asc, count, sql } from "drizzle-orm";
+import { db, attendeesTable, attendancesTable, eq, ilike, or, and, desc, asc, count, sql } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
-router.post("/", async (req, res) => {
+router.post("/", async (req: any, res: any) => {
   const { fullName, email, phoneNumber, isNewcomer } = req.body;
 
   if (!fullName || !email || !phoneNumber) {

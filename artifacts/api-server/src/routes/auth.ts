@@ -1,13 +1,11 @@
 import { Router } from "express";
 import bcrypt from "bcrypt";
-import { db } from "@workspace/db";
-import { adminsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, adminsTable, eq } from "@workspace/db";
 import { requireAuth, signToken, type AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
 
-router.post("/login", async (req, res) => {
+router.post("/login", async (req: any, res: any) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -40,11 +38,11 @@ router.post("/login", async (req, res) => {
   });
 });
 
-router.post("/logout", (_req, res) => {
+router.post("/logout", (_req: any, res: any) => {
   res.json({ message: "Logged out successfully" });
 });
 
-router.get("/me", requireAuth, async (req: AuthRequest, res) => {
+router.get("/me", requireAuth, async (req: AuthRequest, res: any) => {
   const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, req.adminId!)).limit(1);
 
   if (!admin) {
