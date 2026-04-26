@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm run build",
+  "buildCommand": "find . -name '*.tsbuildinfo' -delete && pnpm run build",
   "outputDirectory": "artifacts/event-app/dist",
   "framework": "vite",
   "functions": {
