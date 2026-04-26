@@ -5,7 +5,7 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
-import type { ExportAttendeesFilter } from "./exportAttendeesFilter.js";
+import type { ExportAttendeesFilter } from "./exportAttendeesFilter";
 
 export type ExportAttendeesParams = {
   filter?: ExportAttendeesFilter;

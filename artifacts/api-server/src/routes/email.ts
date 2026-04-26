@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.js";
-import { sendBulkEmail } from "../services/emailService.js";
+import { requireAuth } from "../middleware/auth";
+import { sendBulkEmail } from "../services/emailService";
 import { db, emailCampaignsTable, desc } from "@workspace/db";
 
 const router = Router();

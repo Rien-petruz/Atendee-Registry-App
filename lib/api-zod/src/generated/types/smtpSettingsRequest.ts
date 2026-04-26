@@ -5,7 +5,7 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
-import type { SmtpSettingsRequestEncryption } from "./smtpSettingsRequestEncryption.js";
+import type { SmtpSettingsRequestEncryption } from "./smtpSettingsRequestEncryption";
 
 export interface SmtpSettingsRequest {
   host: string;

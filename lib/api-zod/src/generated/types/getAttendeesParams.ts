@@ -5,8 +5,8 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
-import type { GetAttendeesFilter } from "./getAttendeesFilter.js";
-import type { GetAttendeesSort } from "./getAttendeesSort.js";
+import type { GetAttendeesFilter } from "./getAttendeesFilter";
+import type { GetAttendeesSort } from "./getAttendeesSort";
 
 export type GetAttendeesParams = {
   /**

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { clearAuthToken, getAuthToken } from "@/lib/utils";
+import { clearAuthToken, getAuthToken } from "@/lib/utils.js";
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getAuthToken());

@@ -5,7 +5,7 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmailCampaign } from "./emailCampaign.js";
+import type { EmailCampaign } from "./emailCampaign";
 
 export interface EmailCampaignsResponse {
   campaigns: EmailCampaign[];

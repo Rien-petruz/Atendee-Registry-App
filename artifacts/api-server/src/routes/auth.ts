@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcrypt";
 import { db, adminsTable, eq } from "@workspace/db";
-import { requireAuth, signToken, type AuthRequest } from "../middleware/auth.js";
+import { requireAuth, signToken, type AuthRequest } from "../middleware/auth";
 
 const router = Router();
 

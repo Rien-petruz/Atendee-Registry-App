@@ -5,7 +5,7 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
-import type { SendEmailRequestTargetGroup } from "./sendEmailRequestTargetGroup.js";
+import type { SendEmailRequestTargetGroup } from "./sendEmailRequestTargetGroup";
 
 export interface SendEmailRequest {
   /** @minLength 1 */
