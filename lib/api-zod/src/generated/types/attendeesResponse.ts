@@ -5,7 +5,7 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
-import type { Attendee } from "./attendee";
+import type { Attendee } from "./attendee.js";
 
 export interface AttendeesResponse {
   attendees: Attendee[];
