@@ -5,7 +5,7 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
-import type { AdminUser } from "./adminUser";
+import type { AdminUser } from "./adminUser.js";
 
 export interface LoginResponse {
   token: string;

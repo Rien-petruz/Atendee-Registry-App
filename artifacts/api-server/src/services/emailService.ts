@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import { db, smtpSettingsTable, attendeesTable, emailCampaignsTable, eq, and, sql } from "@workspace/db";
-import { decrypt } from "../lib/crypto";
+import { decrypt } from "../lib/crypto.js";
 
 export async function getSmtpTransport() {
   const [settings] = await db.select().from(smtpSettingsTable).limit(1);

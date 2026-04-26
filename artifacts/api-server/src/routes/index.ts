@@ -1,9 +1,9 @@
 import { Router } from "express";
-import healthRouter from "./health";
-import authRouter from "./auth";
-import attendeesRouter from "./attendees";
-import settingsRouter from "./settings";
-import emailRouter from "./email";
+import healthRouter from "./health.js";
+import authRouter from "./auth.js";
+import attendeesRouter from "./attendees.js";
+import settingsRouter from "./settings.js";
+import emailRouter from "./email.js";
 
 const router = Router();
 

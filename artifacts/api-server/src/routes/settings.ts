@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db, smtpSettingsTable, eq } from "@workspace/db";
-import { requireAuth } from "../middleware/auth";
-import { encrypt } from "../lib/crypto";
-import { getSmtpTransport } from "../services/emailService";
+import { requireAuth } from "../middleware/auth.js";
+import { encrypt } from "../lib/crypto.js";
+import { getSmtpTransport } from "../services/emailService.js";
 
 const router = Router();
 
