@@ -8,17 +8,25 @@ export * from "./schema/index.js";
 const { Pool } = pg;
 
 function getConnectionString() {
-  const conn = 
-    process.env.DATABASE_URL || 
-    process.env.POSTGRES_URL || 
-    process.env.STORAGE_POSTGRES_URL || 
+  const conn =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.STORAGE_POSTGRES_URL ||
     process.env.STORAGE_POSTGRES_PRISMA_URL;
-  
+
   if (!conn && process.env.NODE_ENV === "production") {
     console.error("CRITICAL: Database connection string not found in environment variables.");
   }
   return conn;
 }
 
-export const pool = new Pool({ connectionString: getConnectionString() });
+// For serverless environments, use connection pooling options that work well with functions
+const connectionString = getConnectionString();
+export const pool = new Pool({
+  connectionString,
+  max: 1, // Serverless functions should use minimal connections
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
 export const db = drizzle(pool, { schema });
