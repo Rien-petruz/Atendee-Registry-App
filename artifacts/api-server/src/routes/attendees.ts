@@ -57,7 +57,7 @@ router.post("/", async (req: any, res: any) => {
   }
 });
 
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", requireAuth, async (req: any, res: any) => {
   const {
     search = "",
     filter = "all",
@@ -129,7 +129,7 @@ router.get("/", requireAuth, async (req, res) => {
   });
 });
 
-router.get("/export", requireAuth, async (req, res) => {
+router.get("/export", requireAuth, async (req: any, res: any) => {
   const { filter = "all" } = req.query as Record<string, string>;
 
   let attendees;
