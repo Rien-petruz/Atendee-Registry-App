@@ -23,6 +23,7 @@ import {
   useExportAttendees,
   useRegisterAttendee,
   getGetAttendeesQueryKey,
+  getExportAttendeesQueryKey,
   GetAttendeesFilter,
   GetAttendeesSort
 } from "@workspace/api-client-react";
@@ -148,7 +149,7 @@ export default function Dashboard() {
 
   const { refetch: exportCsv, isFetching: isExporting } = useExportAttendees(
     { filter: filter !== "all" ? filter : undefined },
-    { ...apiOpts, query: { enabled: false } }
+    { ...apiOpts, query: { enabled: false, queryKey: getExportAttendeesQueryKey({ filter: filter !== "all" ? filter : undefined }) } }
   );
 
   const handleExport = async () => {
