@@ -1,4 +1,4 @@
-import app from "../artifacts/api-server/src/app.js";
-
-// This allows Vercel to serve the Express app as a serverless function
-export default app;
+export default async (req: any, res: any) => {
+  const { default: app } = await import("../artifacts/api-server/src/app.js");
+  return app(req, res);
+};

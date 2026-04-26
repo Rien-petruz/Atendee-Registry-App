@@ -7,17 +7,18 @@ export * from "./schema/index.js";
 
 const { Pool } = pg;
 
-const connectionString = 
-  process.env.DATABASE_URL || 
-  process.env.POSTGRES_URL || 
-  process.env.STORAGE_POSTGRES_URL || 
-  process.env.STORAGE_POSTGRES_PRISMA_URL;
-
-if (!connectionString) {
-  throw new Error(
-    "Database connection string not found. Please set DATABASE_URL or STORAGE_POSTGRES_URL in Vercel.",
-  );
+function getConnectionString() {
+  const conn = 
+    process.env.DATABASE_URL || 
+    process.env.POSTGRES_URL || 
+    process.env.STORAGE_POSTGRES_URL || 
+    process.env.STORAGE_POSTGRES_PRISMA_URL;
+  
+  if (!conn && process.env.NODE_ENV === "production") {
+    console.error("CRITICAL: Database connection string not found in environment variables.");
+  }
+  return conn;
 }
 
-export const pool = new Pool({ connectionString });
+export const pool = new Pool({ connectionString: getConnectionString() });
 export const db = drizzle(pool, { schema });
