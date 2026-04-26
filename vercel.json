@@ -2,8 +2,8 @@
   "outputDirectory": "artifacts/event-app/dist",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
     },
     {
       "source": "/((?!api/).*)",
