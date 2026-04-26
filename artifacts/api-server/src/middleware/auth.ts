@@ -8,7 +8,7 @@ export interface AuthRequest extends Request {
   adminEmail?: string;
 }
 
-export function requireAuth(req: AuthRequest, res: Response, next: NextFunction): void {
+export function requireAuth(req: any, res: any, next: any): void {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
