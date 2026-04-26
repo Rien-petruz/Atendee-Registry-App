@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "event-app-jwt-secret-change-in-prod";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.STORAGE_SUPABASE_JWT_SECRET || "event-app-jwt-secret-change-in-prod";
 
 export interface AuthRequest extends Request {
   adminId?: number;

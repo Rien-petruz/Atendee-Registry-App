@@ -7,11 +7,15 @@ export * from "./schema/index.js";
 
 const { Pool } = pg;
 
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const connectionString = 
+  process.env.DATABASE_URL || 
+  process.env.POSTGRES_URL || 
+  process.env.STORAGE_POSTGRES_URL || 
+  process.env.STORAGE_POSTGRES_PRISMA_URL;
 
 if (!connectionString) {
   throw new Error(
-    "DATABASE_URL or POSTGRES_URL must be set. Did you forget to provision a database?",
+    "Database connection string not found. Please set DATABASE_URL or STORAGE_POSTGRES_URL in Vercel.",
   );
 }
 

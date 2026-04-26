@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-const ENCRYPTION_KEY = (process.env.ENCRYPTION_KEY || "event-app-secret-key-32chars!!").padEnd(32, "!").slice(0, 32);
+const ENCRYPTION_KEY = (process.env.ENCRYPTION_KEY || process.env.STORAGE_SUPABASE_SERVICE_ROLE_KEY || "event-app-secret-key-32chars!!").padEnd(32, "!").slice(0, 32);
 const ALGORITHM = "aes-256-cbc";
 
 export function encrypt(text: string): string {
