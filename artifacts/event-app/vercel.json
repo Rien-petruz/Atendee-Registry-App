@@ -1,5 +1,4 @@
 {
-  "outputDirectory": "artifacts/event-app/dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]

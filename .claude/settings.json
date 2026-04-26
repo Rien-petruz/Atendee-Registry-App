@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/tmp/structure.txt:*)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
