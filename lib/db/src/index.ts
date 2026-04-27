@@ -27,7 +27,9 @@ export const pool = new Pool({
   connectionString,
   max: 1, // Serverless functions should use minimal connections
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000, // Increased for serverless cold starts
+  statement_timeout: 15000,
+  query_timeout: 15000,
 });
 
 export const db = drizzle(pool, { schema });
