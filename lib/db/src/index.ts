@@ -33,6 +33,10 @@ export const pool = new Pool({
   connectionTimeoutMillis: 15000, // Increased for serverless cold starts
   statement_timeout: 15000,
   query_timeout: 15000,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+  application_name: 'attendee-registry-api',
 });
 
 pool.on('error', (err) => {
