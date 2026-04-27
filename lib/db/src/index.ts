@@ -15,8 +15,11 @@ function getConnectionString() {
     process.env.STORAGE_POSTGRES_PRISMA_URL ||
     process.env.STORAGE_POSTGRES_URL_NON_POOLING;
 
-  if (!conn && process.env.NODE_ENV === "production") {
+  if (!conn) {
     console.error("CRITICAL: Database connection string not found in environment variables.");
+    console.error("Available env vars:", Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('POSTGRES')));
+  } else {
+    console.log("✅ Database connection string found");
   }
   return conn;
 }
@@ -30,6 +33,14 @@ export const pool = new Pool({
   connectionTimeoutMillis: 15000, // Increased for serverless cold starts
   statement_timeout: 15000,
   query_timeout: 15000,
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+pool.on('connect', () => {
+  console.log('✅ New client connected to pool');
 });
 
 export const db = drizzle(pool, { schema });
