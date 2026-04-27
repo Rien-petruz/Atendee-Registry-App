@@ -3,6 +3,7 @@ import { db, smtpSettingsTable, eq } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
 import { encrypt } from "../lib/crypto.js";
 import { getSmtpTransport } from "../services/emailService.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -77,7 +78,7 @@ router.post("/smtp/test", requireAuth, async (req: any, res: any) => {
     await transport.verify();
     res.json({ message: "SMTP connection successful" });
   } catch (err: any) {
-    req.log.error({ err }, "SMTP test failed");
+    logger.error({ err }, "SMTP test failed");
     res.status(400).json({ error: "SMTP Test Failed", message: err?.message || "Could not connect to SMTP server" });
   }
 });

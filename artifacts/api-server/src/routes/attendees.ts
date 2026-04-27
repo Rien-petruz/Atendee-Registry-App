@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, attendeesTable, attendancesTable, eq, ilike, or, and, desc, asc, count, sql } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.post("/", async (req: any, res: any) => {
 
     res.status(isReturning ? 200 : 201).json(attendee);
   } catch (err: any) {
-    req.log.error({ err }, "Failed to register attendee");
+    logger.error({ err }, "Failed to register attendee");
     res.status(500).json({ error: "Internal Server Error", message: "Failed to register attendee" });
   }
 });

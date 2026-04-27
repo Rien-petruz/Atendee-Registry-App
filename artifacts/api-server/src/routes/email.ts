@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { sendBulkEmail } from "../services/emailService.js";
 import { db, emailCampaignsTable, desc } from "@workspace/db";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -33,7 +34,7 @@ router.post("/send", requireAuth, async (req: any, res: any) => {
       message: `Email sent to ${result.successCount} of ${result.total} recipients`,
     });
   } catch (err: any) {
-    req.log.error({ err }, "Failed to send bulk email");
+    logger.error({ err }, "Failed to send bulk email");
     if (err?.message?.includes("SMTP not configured") || err?.message?.includes("SMTP settings not configured")) {
       res.status(400).json({ error: "Bad Request", message: "SMTP is not configured. Please configure SMTP settings first." });
       return;
