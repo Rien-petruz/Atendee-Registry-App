@@ -35,6 +35,26 @@ export interface LoginResponse {
   admin: AdminUser;
 }
 
+export interface AdminsResponse {
+  admins: AdminUser[];
+}
+
+export interface CreateAdminRequest {
+  email: string;
+  /** @minLength 8 */
+  password: string;
+}
+
+export type DeleteAdminResponseAdmin = {
+  id: number;
+  email: string;
+};
+
+export interface DeleteAdminResponse {
+  deleted: boolean;
+  admin: DeleteAdminResponseAdmin;
+}
+
 export interface RegisterAttendeeRequest {
   /** @minLength 2 */
   fullName: string;
@@ -51,6 +71,100 @@ export interface Attendee {
   phoneNumber: string;
   isNewcomer: boolean;
   createdAt: string;
+}
+
+export interface AdminAddAttendeeRequest {
+  /** @minLength 2 */
+  fullName: string;
+  email: string;
+  /** @minLength 1 */
+  phoneNumber: string;
+  isNewcomer: boolean;
+  /**
+   * Attendance month (1-12). Defaults to current month if omitted.
+   * @minimum 1
+   * @maximum 12
+   */
+  month?: number;
+  /**
+   * Attendance year. Defaults to current year if omitted.
+   * @minimum 2000
+   * @maximum 2100
+   */
+  year?: number;
+}
+
+export interface AdminAddAttendeeResponse {
+  attendee: Attendee;
+  /** True if a new attendee row was inserted, false if an existing one was reused. */
+  created: boolean;
+  /** True if an attendance row was inserted, false if one already existed for (attendee, month, year). */
+  attendanceAdded: boolean;
+}
+
+export interface ImportAttendeeRow {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  isNewcomer: boolean;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+  /**
+   * @minimum 2000
+   * @maximum 2100
+   */
+  year: number;
+}
+
+export interface ImportAttendeesRequest {
+  /** @maxItems 5000 */
+  rows: ImportAttendeeRow[];
+}
+
+export interface ImportError {
+  rowNumber: number;
+  message: string;
+}
+
+export interface ImportAttendeesResponse {
+  totalRows: number;
+  createdAttendees: number;
+  attendancesAdded: number;
+  skipped: number;
+  errors: ImportError[];
+}
+
+export interface DeleteAttendeeResponse {
+  deleted: boolean;
+  attendee: Attendee;
+}
+
+export interface DeleteAttendanceRequest {
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+  /**
+   * @minimum 2000
+   * @maximum 2100
+   */
+  year: number;
+}
+
+export type DeleteAttendanceResponseAttendance = {
+  id: number;
+  attendeeId: number;
+  month: number;
+  year: number;
+};
+
+export interface DeleteAttendanceResponse {
+  deleted: boolean;
+  attendance: DeleteAttendanceResponseAttendance;
 }
 
 export interface AttendeesResponse {
@@ -122,6 +236,80 @@ export interface SendEmailRequest {
   filterMonth?: number;
   /** Only send to attendees who registered in this year */
   filterYear?: number;
+}
+
+export interface SmsSettings {
+  provider: string;
+  senderId: string;
+  isConfigured: boolean;
+}
+
+export interface SmsSettingsRequest {
+  /** @minLength 1 */
+  token: string;
+  /**
+   * @minLength 1
+   * @maxLength 11
+   */
+  senderId: string;
+}
+
+export interface SmsTestResponse {
+  message: string;
+  balance: number;
+}
+
+export type SendSmsRequestTargetGroup =
+  (typeof SendSmsRequestTargetGroup)[keyof typeof SendSmsRequestTargetGroup];
+
+export const SendSmsRequestTargetGroup = {
+  all: "all",
+  newcomers: "newcomers",
+  returning: "returning",
+} as const;
+
+export interface SendSmsRequest {
+  /**
+   * @minLength 1
+   * @maxLength 1600
+   */
+  message: string;
+  targetGroup: SendSmsRequestTargetGroup;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  filterMonth?: number;
+  filterYear?: number;
+}
+
+export interface SmsSendError {
+  phone: string;
+  reason: string;
+}
+
+export interface SendSmsResponse {
+  successCount: number;
+  failedCount: number;
+  total: number;
+  message: string;
+  errors: SmsSendError[];
+}
+
+export interface SmsCampaign {
+  id: number;
+  message: string;
+  targetGroup: string;
+  filterMonth?: number | null;
+  filterYear?: number | null;
+  successCount: number;
+  failedCount: number;
+  total: number;
+  sentAt: string;
+}
+
+export interface SmsCampaignsResponse {
+  campaigns: SmsCampaign[];
 }
 
 export interface EmailCampaign {

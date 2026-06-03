@@ -6,9 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./adminAddAttendeeRequest.js";
+export * from "./adminAddAttendeeResponse.js";
+export * from "./adminsResponse.js";
 export * from "./adminUser.js";
 export * from "./attendee.js";
 export * from "./attendeesResponse.js";
+export * from "./createAdminRequest.js";
+export * from "./deleteAdminResponse.js";
+export * from "./deleteAdminResponseAdmin.js";
+export * from "./deleteAttendanceRequest.js";
+export * from "./deleteAttendanceResponse.js";
+export * from "./deleteAttendanceResponseAttendance.js";
+export * from "./deleteAttendeeResponse.js";
 export * from "./emailCampaign.js";
 export * from "./emailCampaignsResponse.js";
 export * from "./errorResponse.js";
@@ -18,6 +28,10 @@ export * from "./getAttendeesFilter.js";
 export * from "./getAttendeesParams.js";
 export * from "./getAttendeesSort.js";
 export * from "./healthStatus.js";
+export * from "./importAttendeeRow.js";
+export * from "./importAttendeesRequest.js";
+export * from "./importAttendeesResponse.js";
+export * from "./importError.js";
 export * from "./loginRequest.js";
 export * from "./loginResponse.js";
 export * from "./messageResponse.js";
@@ -25,6 +39,15 @@ export * from "./registerAttendeeRequest.js";
 export * from "./sendEmailRequest.js";
 export * from "./sendEmailRequestTargetGroup.js";
 export * from "./sendEmailResponse.js";
+export * from "./sendSmsRequest.js";
+export * from "./sendSmsRequestTargetGroup.js";
+export * from "./sendSmsResponse.js";
+export * from "./smsCampaign.js";
+export * from "./smsCampaignsResponse.js";
+export * from "./smsSendError.js";
+export * from "./smsSettings.js";
+export * from "./smsSettingsRequest.js";
+export * from "./smsTestResponse.js";
 export * from "./smtpSettings.js";
 export * from "./smtpSettingsEncryption.js";
 export * from "./smtpSettingsRequest.js";

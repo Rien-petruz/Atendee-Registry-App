@@ -14,9 +14,11 @@ tags:
   - name: attendees
     description: Attendee management operations
   - name: settings
-    description: SMTP settings operations
+    description: SMTP and SMS provider settings operations
   - name: email
     description: Email sending operations
+  - name: sms
+    description: SMS sending operations (KudiSMS)
 
 paths:
   /healthz:
@@ -87,6 +89,103 @@ paths:
                 $ref: "#/components/schemas/AdminUser"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/admins:
+    get:
+      operationId: listAdmins
+      tags: [auth]
+      summary: List all admin users
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of admins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createAdmin
+      tags: [auth]
+      summary: Create a new admin user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdminRequest"
+      responses:
+        "201":
+          description: Admin created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/admins/{id}:
+    delete:
+      operationId: deleteAdmin
+      tags: [auth]
+      summary: Delete an admin user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Admin deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAdminResponse"
+        "400":
+          description: Cannot delete (self or last admin)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -185,6 +284,144 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /attendees/admin:
+    post:
+      operationId: adminAddAttendee
+      tags: [attendees]
+      summary: Admin add attendee with optional backfilled month/year
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAddAttendeeRequest"
+      responses:
+        "200":
+          description: Attendee added or attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAddAttendeeResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /attendees/import:
+    post:
+      operationId: importAttendees
+      tags: [attendees]
+      summary: Bulk import attendees with month/year per row
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportAttendeesRequest"
+      responses:
+        "200":
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportAttendeesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /attendees/{id}:
+    delete:
+      operationId: deleteAttendee
+      tags: [attendees]
+      summary: Delete an attendee (cascades to attendances)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attendee deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAttendeeResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /attendees/{id}/attendances:
+    delete:
+      operationId: deleteAttendance
+      tags: [attendees]
+      summary: Delete a single attendance for an attendee (specific month/year)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAttendanceRequest"
+      responses:
+        "200":
+          description: Attendance deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAttendanceResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /attendees/export:
     get:
       operationId: exportAttendees
@@ -272,6 +509,139 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/sms:
+    get:
+      operationId: getSmsSettings
+      tags: [settings]
+      summary: Get SMS provider settings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: SMS settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsSettings"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: saveSmsSettings
+      tags: [settings]
+      summary: Save SMS provider settings (KudiSMS token + sender ID)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmsSettingsRequest"
+      responses:
+        "200":
+          description: Settings saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsSettings"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/sms/test:
+    post:
+      operationId: testSmsSettings
+      tags: [settings]
+      summary: Verify KudiSMS token and fetch current balance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Test result with balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsTestResponse"
+        "400":
+          description: Not configured or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sms/send:
+    post:
+      operationId: sendSms
+      tags: [sms]
+      summary: Send bulk SMS to attendees via KudiSMS
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendSmsRequest"
+      responses:
+        "200":
+          description: SMS send result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendSmsResponse"
+        "400":
+          description: Bad request (no SMS configured, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sms/history:
+    get:
+      operationId: getSmsHistory
+      tags: [sms]
+      summary: Get SMS campaign history
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of sent SMS campaigns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsCampaignsResponse"
         "401":
           description: Unauthorized
           content:
@@ -406,6 +776,48 @@ components:
         - email
         - createdAt
 
+    AdminsResponse:
+      type: object
+      properties:
+        admins:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+      required:
+        - admins
+
+    CreateAdminRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+      required:
+        - email
+        - password
+
+    DeleteAdminResponse:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        admin:
+          type: object
+          properties:
+            id:
+              type: integer
+            email:
+              type: string
+          required:
+            - id
+            - email
+      required:
+        - deleted
+        - admin
+
     RegisterAttendeeRequest:
       type: object
       properties:
@@ -449,6 +861,174 @@ components:
         - phoneNumber
         - isNewcomer
         - createdAt
+
+    AdminAddAttendeeRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        phoneNumber:
+          type: string
+          minLength: 1
+        isNewcomer:
+          type: boolean
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: Attendance month (1-12). Defaults to current month if omitted.
+        year:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+          description: Attendance year. Defaults to current year if omitted.
+      required:
+        - fullName
+        - email
+        - phoneNumber
+        - isNewcomer
+
+    AdminAddAttendeeResponse:
+      type: object
+      properties:
+        attendee:
+          $ref: "#/components/schemas/Attendee"
+        created:
+          type: boolean
+          description: True if a new attendee row was inserted, false if an existing one was reused.
+        attendanceAdded:
+          type: boolean
+          description: True if an attendance row was inserted, false if one already existed for (attendee, month, year).
+      required:
+        - attendee
+        - created
+        - attendanceAdded
+
+    ImportAttendeeRow:
+      type: object
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        phoneNumber:
+          type: string
+        isNewcomer:
+          type: boolean
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        year:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+      required:
+        - fullName
+        - email
+        - phoneNumber
+        - isNewcomer
+        - month
+        - year
+
+    ImportAttendeesRequest:
+      type: object
+      properties:
+        rows:
+          type: array
+          maxItems: 5000
+          items:
+            $ref: "#/components/schemas/ImportAttendeeRow"
+      required:
+        - rows
+
+    ImportError:
+      type: object
+      properties:
+        rowNumber:
+          type: integer
+        message:
+          type: string
+      required:
+        - rowNumber
+        - message
+
+    ImportAttendeesResponse:
+      type: object
+      properties:
+        totalRows:
+          type: integer
+        createdAttendees:
+          type: integer
+        attendancesAdded:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportError"
+      required:
+        - totalRows
+        - createdAttendees
+        - attendancesAdded
+        - skipped
+        - errors
+
+    DeleteAttendeeResponse:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        attendee:
+          $ref: "#/components/schemas/Attendee"
+      required:
+        - deleted
+        - attendee
+
+    DeleteAttendanceRequest:
+      type: object
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        year:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+      required:
+        - month
+        - year
+
+    DeleteAttendanceResponse:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        attendance:
+          type: object
+          properties:
+            id:
+              type: integer
+            attendeeId:
+              type: integer
+            month:
+              type: integer
+            year:
+              type: integer
+          required:
+            - id
+            - attendeeId
+            - month
+            - year
+      required:
+        - deleted
+        - attendance
 
     AttendeesResponse:
       type: object
@@ -545,6 +1125,141 @@ components:
         - subject
         - message
         - targetGroup
+
+    SmsSettings:
+      type: object
+      properties:
+        provider:
+          type: string
+        senderId:
+          type: string
+        isConfigured:
+          type: boolean
+      required:
+        - provider
+        - senderId
+        - isConfigured
+
+    SmsSettingsRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+        senderId:
+          type: string
+          minLength: 1
+          maxLength: 11
+      required:
+        - token
+        - senderId
+
+    SmsTestResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        balance:
+          type: number
+      required:
+        - message
+        - balance
+
+    SendSmsRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1600
+        targetGroup:
+          type: string
+          enum: [all, newcomers, returning]
+        filterMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+        filterYear:
+          type: integer
+      required:
+        - message
+        - targetGroup
+
+    SmsSendError:
+      type: object
+      properties:
+        phone:
+          type: string
+        reason:
+          type: string
+      required:
+        - phone
+        - reason
+
+    SendSmsResponse:
+      type: object
+      properties:
+        successCount:
+          type: integer
+        failedCount:
+          type: integer
+        total:
+          type: integer
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/SmsSendError"
+      required:
+        - successCount
+        - failedCount
+        - total
+        - message
+        - errors
+
+    SmsCampaign:
+      type: object
+      properties:
+        id:
+          type: integer
+        message:
+          type: string
+        targetGroup:
+          type: string
+        filterMonth:
+          type: integer
+          nullable: true
+        filterYear:
+          type: integer
+          nullable: true
+        successCount:
+          type: integer
+        failedCount:
+          type: integer
+        total:
+          type: integer
+        sentAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - message
+        - targetGroup
+        - successCount
+        - failedCount
+        - total
+        - sentAt
+
+    SmsCampaignsResponse:
+      type: object
+      properties:
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SmsCampaign"
+      required:
+        - campaigns
 
     EmailCampaign:
       type: object

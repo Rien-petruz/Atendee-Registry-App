@@ -51,6 +51,44 @@ export const GetMeResponse = zod.object({
 });
 
 /**
+ * @summary List all admin users
+ */
+export const ListAdminsResponse = zod.object({
+  admins: zod.array(
+    zod.object({
+      id: zod.number(),
+      email: zod.string(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a new admin user
+ */
+export const createAdminBodyPasswordMin = 8;
+
+export const CreateAdminBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string().min(createAdminBodyPasswordMin),
+});
+
+/**
+ * @summary Delete an admin user
+ */
+export const DeleteAdminParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAdminResponse = zod.object({
+  deleted: zod.boolean(),
+  admin: zod.object({
+    id: zod.number(),
+    email: zod.string(),
+  }),
+});
+
+/**
  * @summary Register a new attendee
  */
 export const registerAttendeeBodyFullNameMin = 2;
@@ -62,6 +100,15 @@ export const RegisterAttendeeBody = zod.object({
   email: zod.string().email(),
   phoneNumber: zod.string().min(registerAttendeeBodyPhoneNumberMin),
   isNewcomer: zod.boolean(),
+});
+
+export const RegisterAttendeeResponse = zod.object({
+  id: zod.number(),
+  fullName: zod.string(),
+  email: zod.string(),
+  phoneNumber: zod.string(),
+  isNewcomer: zod.boolean(),
+  createdAt: zod.date(),
 });
 
 /**
@@ -113,6 +160,146 @@ export const GetAttendeesResponse = zod.object({
 });
 
 /**
+ * @summary Admin add attendee with optional backfilled month/year
+ */
+export const adminAddAttendeeBodyFullNameMin = 2;
+
+export const adminAddAttendeeBodyMonthMax = 12;
+
+export const adminAddAttendeeBodyYearMin = 2000;
+export const adminAddAttendeeBodyYearMax = 2100;
+
+export const AdminAddAttendeeBody = zod.object({
+  fullName: zod.string().min(adminAddAttendeeBodyFullNameMin),
+  email: zod.string().email(),
+  phoneNumber: zod.string().min(1),
+  isNewcomer: zod.boolean(),
+  month: zod
+    .number()
+    .min(1)
+    .max(adminAddAttendeeBodyMonthMax)
+    .optional()
+    .describe("Attendance month (1-12). Defaults to current month if omitted."),
+  year: zod
+    .number()
+    .min(adminAddAttendeeBodyYearMin)
+    .max(adminAddAttendeeBodyYearMax)
+    .optional()
+    .describe("Attendance year. Defaults to current year if omitted."),
+});
+
+export const AdminAddAttendeeResponse = zod.object({
+  attendee: zod.object({
+    id: zod.number(),
+    fullName: zod.string(),
+    email: zod.string(),
+    phoneNumber: zod.string(),
+    isNewcomer: zod.boolean(),
+    createdAt: zod.date(),
+  }),
+  created: zod
+    .boolean()
+    .describe(
+      "True if a new attendee row was inserted, false if an existing one was reused.",
+    ),
+  attendanceAdded: zod
+    .boolean()
+    .describe(
+      "True if an attendance row was inserted, false if one already existed for (attendee, month, year).",
+    ),
+});
+
+/**
+ * @summary Bulk import attendees with month/year per row
+ */
+export const importAttendeesBodyRowsItemMonthMax = 12;
+
+export const importAttendeesBodyRowsItemYearMin = 2000;
+export const importAttendeesBodyRowsItemYearMax = 2100;
+
+export const importAttendeesBodyRowsMax = 5000;
+
+export const ImportAttendeesBody = zod.object({
+  rows: zod
+    .array(
+      zod.object({
+        fullName: zod.string(),
+        email: zod.string(),
+        phoneNumber: zod.string(),
+        isNewcomer: zod.boolean(),
+        month: zod.number().min(1).max(importAttendeesBodyRowsItemMonthMax),
+        year: zod
+          .number()
+          .min(importAttendeesBodyRowsItemYearMin)
+          .max(importAttendeesBodyRowsItemYearMax),
+      }),
+    )
+    .max(importAttendeesBodyRowsMax),
+});
+
+export const ImportAttendeesResponse = zod.object({
+  totalRows: zod.number(),
+  createdAttendees: zod.number(),
+  attendancesAdded: zod.number(),
+  skipped: zod.number(),
+  errors: zod.array(
+    zod.object({
+      rowNumber: zod.number(),
+      message: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Delete an attendee (cascades to attendances)
+ */
+export const DeleteAttendeeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAttendeeResponse = zod.object({
+  deleted: zod.boolean(),
+  attendee: zod.object({
+    id: zod.number(),
+    fullName: zod.string(),
+    email: zod.string(),
+    phoneNumber: zod.string(),
+    isNewcomer: zod.boolean(),
+    createdAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Delete a single attendance for an attendee (specific month/year)
+ */
+export const DeleteAttendanceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const deleteAttendanceBodyMonthMax = 12;
+
+export const deleteAttendanceBodyYearMin = 2000;
+export const deleteAttendanceBodyYearMax = 2100;
+
+export const DeleteAttendanceBody = zod.object({
+  month: zod.number().min(1).max(deleteAttendanceBodyMonthMax),
+  year: zod
+    .number()
+    .min(deleteAttendanceBodyYearMin)
+    .max(deleteAttendanceBodyYearMax),
+});
+
+export const DeleteAttendanceResponse = zod.object({
+  deleted: zod.boolean(),
+  attendance: zod.object({
+    id: zod.number(),
+    attendeeId: zod.number(),
+    month: zod.number(),
+    year: zod.number(),
+  }),
+});
+
+/**
  * @summary Export attendees as CSV
  */
 export const ExportAttendeesQueryParams = zod.object({
@@ -154,6 +341,86 @@ export const SaveSmtpSettingsResponse = zod.object({
  */
 export const TestSmtpSettingsResponse = zod.object({
   message: zod.string(),
+});
+
+/**
+ * @summary Get SMS provider settings
+ */
+export const GetSmsSettingsResponse = zod.object({
+  provider: zod.string(),
+  senderId: zod.string(),
+  isConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Save SMS provider settings (KudiSMS token + sender ID)
+ */
+
+export const saveSmsSettingsBodySenderIdMax = 11;
+
+export const SaveSmsSettingsBody = zod.object({
+  token: zod.string().min(1),
+  senderId: zod.string().min(1).max(saveSmsSettingsBodySenderIdMax),
+});
+
+export const SaveSmsSettingsResponse = zod.object({
+  provider: zod.string(),
+  senderId: zod.string(),
+  isConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Verify KudiSMS token and fetch current balance
+ */
+export const TestSmsSettingsResponse = zod.object({
+  message: zod.string(),
+  balance: zod.number(),
+});
+
+/**
+ * @summary Send bulk SMS to attendees via KudiSMS
+ */
+export const sendSmsBodyMessageMax = 1600;
+
+export const sendSmsBodyFilterMonthMax = 12;
+
+export const SendSmsBody = zod.object({
+  message: zod.string().min(1).max(sendSmsBodyMessageMax),
+  targetGroup: zod.enum(["all", "newcomers", "returning"]),
+  filterMonth: zod.number().min(1).max(sendSmsBodyFilterMonthMax).optional(),
+  filterYear: zod.number().optional(),
+});
+
+export const SendSmsResponse = zod.object({
+  successCount: zod.number(),
+  failedCount: zod.number(),
+  total: zod.number(),
+  message: zod.string(),
+  errors: zod.array(
+    zod.object({
+      phone: zod.string(),
+      reason: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get SMS campaign history
+ */
+export const GetSmsHistoryResponse = zod.object({
+  campaigns: zod.array(
+    zod.object({
+      id: zod.number(),
+      message: zod.string(),
+      targetGroup: zod.string(),
+      filterMonth: zod.number().nullish(),
+      filterYear: zod.number().nullish(),
+      successCount: zod.number(),
+      failedCount: zod.number(),
+      total: zod.number(),
+      sentAt: zod.date(),
+    }),
+  ),
 });
 
 /**

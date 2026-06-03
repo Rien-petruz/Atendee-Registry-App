@@ -17,20 +17,36 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminAddAttendeeRequest,
+  AdminAddAttendeeResponse,
   AdminUser,
+  AdminsResponse,
   Attendee,
   AttendeesResponse,
+  CreateAdminRequest,
+  DeleteAdminResponse,
+  DeleteAttendanceRequest,
+  DeleteAttendanceResponse,
+  DeleteAttendeeResponse,
   EmailCampaignsResponse,
   ErrorResponse,
   ExportAttendeesParams,
   GetAttendeesParams,
   HealthStatus,
+  ImportAttendeesRequest,
+  ImportAttendeesResponse,
   LoginRequest,
   LoginResponse,
   MessageResponse,
   RegisterAttendeeRequest,
   SendEmailRequest,
   SendEmailResponse,
+  SendSmsRequest,
+  SendSmsResponse,
+  SmsCampaignsResponse,
+  SmsSettings,
+  SmsSettingsRequest,
+  SmsTestResponse,
   SmtpSettings,
   SmtpSettingsRequest,
 } from "./api.schemas.js";
@@ -351,6 +367,251 @@ export function useGetMe<
 }
 
 /**
+ * @summary List all admin users
+ */
+export const getListAdminsUrl = () => {
+  return `/api/auth/admins`;
+};
+
+export const listAdmins = async (
+  options?: RequestInit,
+): Promise<AdminsResponse> => {
+  return customFetch<AdminsResponse>(getListAdminsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminsQueryKey = () => {
+  return [`/api/auth/admins`] as const;
+};
+
+export const getListAdminsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdmins>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdmins>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAdminsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdmins>>> = ({
+    signal,
+  }) => listAdmins({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdmins>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdmins>>
+>;
+export type ListAdminsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List all admin users
+ */
+
+export function useListAdmins<
+  TData = Awaited<ReturnType<typeof listAdmins>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdmins>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new admin user
+ */
+export const getCreateAdminUrl = () => {
+  return `/api/auth/admins`;
+};
+
+export const createAdmin = async (
+  createAdminRequest: CreateAdminRequest,
+  options?: RequestInit,
+): Promise<AdminUser> => {
+  return customFetch<AdminUser>(getCreateAdminUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAdminRequest),
+  });
+};
+
+export const getCreateAdminMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdmin>>,
+    TError,
+    { data: BodyType<CreateAdminRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdmin>>,
+  TError,
+  { data: BodyType<CreateAdminRequest> },
+  TContext
+> => {
+  const mutationKey = ["createAdmin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdmin>>,
+    { data: BodyType<CreateAdminRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAdmin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdmin>>
+>;
+export type CreateAdminMutationBody = BodyType<CreateAdminRequest>;
+export type CreateAdminMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a new admin user
+ */
+export const useCreateAdmin = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdmin>>,
+    TError,
+    { data: BodyType<CreateAdminRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdmin>>,
+  TError,
+  { data: BodyType<CreateAdminRequest> },
+  TContext
+> => {
+  return useMutation(getCreateAdminMutationOptions(options));
+};
+
+/**
+ * @summary Delete an admin user
+ */
+export const getDeleteAdminUrl = (id: number) => {
+  return `/api/auth/admins/${id}`;
+};
+
+export const deleteAdmin = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteAdminResponse> => {
+  return customFetch<DeleteAdminResponse>(getDeleteAdminUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAdminMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdmin>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAdmin>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAdmin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAdmin>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAdmin(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAdminMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdmin>>
+>;
+
+export type DeleteAdminMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete an admin user
+ */
+export const useDeleteAdmin = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdmin>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAdmin>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAdminMutationOptions(options));
+};
+
+/**
  * @summary Register a new attendee
  */
 export const getRegisterAttendeeUrl = () => {
@@ -529,6 +790,349 @@ export function useGetAttendees<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Admin add attendee with optional backfilled month/year
+ */
+export const getAdminAddAttendeeUrl = () => {
+  return `/api/attendees/admin`;
+};
+
+export const adminAddAttendee = async (
+  adminAddAttendeeRequest: AdminAddAttendeeRequest,
+  options?: RequestInit,
+): Promise<AdminAddAttendeeResponse> => {
+  return customFetch<AdminAddAttendeeResponse>(getAdminAddAttendeeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminAddAttendeeRequest),
+  });
+};
+
+export const getAdminAddAttendeeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminAddAttendee>>,
+    TError,
+    { data: BodyType<AdminAddAttendeeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminAddAttendee>>,
+  TError,
+  { data: BodyType<AdminAddAttendeeRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminAddAttendee"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminAddAttendee>>,
+    { data: BodyType<AdminAddAttendeeRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminAddAttendee(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminAddAttendeeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminAddAttendee>>
+>;
+export type AdminAddAttendeeMutationBody = BodyType<AdminAddAttendeeRequest>;
+export type AdminAddAttendeeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin add attendee with optional backfilled month/year
+ */
+export const useAdminAddAttendee = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminAddAttendee>>,
+    TError,
+    { data: BodyType<AdminAddAttendeeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminAddAttendee>>,
+  TError,
+  { data: BodyType<AdminAddAttendeeRequest> },
+  TContext
+> => {
+  return useMutation(getAdminAddAttendeeMutationOptions(options));
+};
+
+/**
+ * @summary Bulk import attendees with month/year per row
+ */
+export const getImportAttendeesUrl = () => {
+  return `/api/attendees/import`;
+};
+
+export const importAttendees = async (
+  importAttendeesRequest: ImportAttendeesRequest,
+  options?: RequestInit,
+): Promise<ImportAttendeesResponse> => {
+  return customFetch<ImportAttendeesResponse>(getImportAttendeesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(importAttendeesRequest),
+  });
+};
+
+export const getImportAttendeesMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importAttendees>>,
+    TError,
+    { data: BodyType<ImportAttendeesRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importAttendees>>,
+  TError,
+  { data: BodyType<ImportAttendeesRequest> },
+  TContext
+> => {
+  const mutationKey = ["importAttendees"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importAttendees>>,
+    { data: BodyType<ImportAttendeesRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importAttendees(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportAttendeesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importAttendees>>
+>;
+export type ImportAttendeesMutationBody = BodyType<ImportAttendeesRequest>;
+export type ImportAttendeesMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Bulk import attendees with month/year per row
+ */
+export const useImportAttendees = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importAttendees>>,
+    TError,
+    { data: BodyType<ImportAttendeesRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importAttendees>>,
+  TError,
+  { data: BodyType<ImportAttendeesRequest> },
+  TContext
+> => {
+  return useMutation(getImportAttendeesMutationOptions(options));
+};
+
+/**
+ * @summary Delete an attendee (cascades to attendances)
+ */
+export const getDeleteAttendeeUrl = (id: number) => {
+  return `/api/attendees/${id}`;
+};
+
+export const deleteAttendee = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteAttendeeResponse> => {
+  return customFetch<DeleteAttendeeResponse>(getDeleteAttendeeUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAttendeeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAttendee>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAttendee>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAttendee"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAttendee>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAttendee(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAttendeeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAttendee>>
+>;
+
+export type DeleteAttendeeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete an attendee (cascades to attendances)
+ */
+export const useDeleteAttendee = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAttendee>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAttendee>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAttendeeMutationOptions(options));
+};
+
+/**
+ * @summary Delete a single attendance for an attendee (specific month/year)
+ */
+export const getDeleteAttendanceUrl = (id: number) => {
+  return `/api/attendees/${id}/attendances`;
+};
+
+export const deleteAttendance = async (
+  id: number,
+  deleteAttendanceRequest: DeleteAttendanceRequest,
+  options?: RequestInit,
+): Promise<DeleteAttendanceResponse> => {
+  return customFetch<DeleteAttendanceResponse>(getDeleteAttendanceUrl(id), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(deleteAttendanceRequest),
+  });
+};
+
+export const getDeleteAttendanceMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAttendance>>,
+    TError,
+    { id: number; data: BodyType<DeleteAttendanceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAttendance>>,
+  TError,
+  { id: number; data: BodyType<DeleteAttendanceRequest> },
+  TContext
+> => {
+  const mutationKey = ["deleteAttendance"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAttendance>>,
+    { id: number; data: BodyType<DeleteAttendanceRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return deleteAttendance(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAttendanceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAttendance>>
+>;
+export type DeleteAttendanceMutationBody = BodyType<DeleteAttendanceRequest>;
+export type DeleteAttendanceMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a single attendance for an attendee (specific month/year)
+ */
+export const useDeleteAttendance = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAttendance>>,
+    TError,
+    { id: number; data: BodyType<DeleteAttendanceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAttendance>>,
+  TError,
+  { id: number; data: BodyType<DeleteAttendanceRequest> },
+  TContext
+> => {
+  return useMutation(getDeleteAttendanceMutationOptions(options));
+};
 
 /**
  * @summary Export attendees as CSV
@@ -865,6 +1469,409 @@ export const useTestSmtpSettings = <
 > => {
   return useMutation(getTestSmtpSettingsMutationOptions(options));
 };
+
+/**
+ * @summary Get SMS provider settings
+ */
+export const getGetSmsSettingsUrl = () => {
+  return `/api/settings/sms`;
+};
+
+export const getSmsSettings = async (
+  options?: RequestInit,
+): Promise<SmsSettings> => {
+  return customFetch<SmsSettings>(getGetSmsSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSmsSettingsQueryKey = () => {
+  return [`/api/settings/sms`] as const;
+};
+
+export const getGetSmsSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSmsSettings>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSmsSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSmsSettings>>> = ({
+    signal,
+  }) => getSmsSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSmsSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSmsSettings>>
+>;
+export type GetSmsSettingsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get SMS provider settings
+ */
+
+export function useGetSmsSettings<
+  TData = Awaited<ReturnType<typeof getSmsSettings>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSmsSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save SMS provider settings (KudiSMS token + sender ID)
+ */
+export const getSaveSmsSettingsUrl = () => {
+  return `/api/settings/sms`;
+};
+
+export const saveSmsSettings = async (
+  smsSettingsRequest: SmsSettingsRequest,
+  options?: RequestInit,
+): Promise<SmsSettings> => {
+  return customFetch<SmsSettings>(getSaveSmsSettingsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(smsSettingsRequest),
+  });
+};
+
+export const getSaveSmsSettingsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveSmsSettings>>,
+    TError,
+    { data: BodyType<SmsSettingsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveSmsSettings>>,
+  TError,
+  { data: BodyType<SmsSettingsRequest> },
+  TContext
+> => {
+  const mutationKey = ["saveSmsSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveSmsSettings>>,
+    { data: BodyType<SmsSettingsRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return saveSmsSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveSmsSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveSmsSettings>>
+>;
+export type SaveSmsSettingsMutationBody = BodyType<SmsSettingsRequest>;
+export type SaveSmsSettingsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save SMS provider settings (KudiSMS token + sender ID)
+ */
+export const useSaveSmsSettings = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveSmsSettings>>,
+    TError,
+    { data: BodyType<SmsSettingsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveSmsSettings>>,
+  TError,
+  { data: BodyType<SmsSettingsRequest> },
+  TContext
+> => {
+  return useMutation(getSaveSmsSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Verify KudiSMS token and fetch current balance
+ */
+export const getTestSmsSettingsUrl = () => {
+  return `/api/settings/sms/test`;
+};
+
+export const testSmsSettings = async (
+  options?: RequestInit,
+): Promise<SmsTestResponse> => {
+  return customFetch<SmsTestResponse>(getTestSmsSettingsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getTestSmsSettingsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testSmsSettings>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testSmsSettings>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["testSmsSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testSmsSettings>>,
+    void
+  > = () => {
+    return testSmsSettings(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestSmsSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testSmsSettings>>
+>;
+
+export type TestSmsSettingsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Verify KudiSMS token and fetch current balance
+ */
+export const useTestSmsSettings = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testSmsSettings>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof testSmsSettings>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getTestSmsSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Send bulk SMS to attendees via KudiSMS
+ */
+export const getSendSmsUrl = () => {
+  return `/api/sms/send`;
+};
+
+export const sendSms = async (
+  sendSmsRequest: SendSmsRequest,
+  options?: RequestInit,
+): Promise<SendSmsResponse> => {
+  return customFetch<SendSmsResponse>(getSendSmsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendSmsRequest),
+  });
+};
+
+export const getSendSmsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendSms>>,
+    TError,
+    { data: BodyType<SendSmsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendSms>>,
+  TError,
+  { data: BodyType<SendSmsRequest> },
+  TContext
+> => {
+  const mutationKey = ["sendSms"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendSms>>,
+    { data: BodyType<SendSmsRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendSms(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendSmsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendSms>>
+>;
+export type SendSmsMutationBody = BodyType<SendSmsRequest>;
+export type SendSmsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Send bulk SMS to attendees via KudiSMS
+ */
+export const useSendSms = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendSms>>,
+    TError,
+    { data: BodyType<SendSmsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendSms>>,
+  TError,
+  { data: BodyType<SendSmsRequest> },
+  TContext
+> => {
+  return useMutation(getSendSmsMutationOptions(options));
+};
+
+/**
+ * @summary Get SMS campaign history
+ */
+export const getGetSmsHistoryUrl = () => {
+  return `/api/sms/history`;
+};
+
+export const getSmsHistory = async (
+  options?: RequestInit,
+): Promise<SmsCampaignsResponse> => {
+  return customFetch<SmsCampaignsResponse>(getGetSmsHistoryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSmsHistoryQueryKey = () => {
+  return [`/api/sms/history`] as const;
+};
+
+export const getGetSmsHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSmsHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSmsHistoryQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSmsHistory>>> = ({
+    signal,
+  }) => getSmsHistory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSmsHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSmsHistory>>
+>;
+export type GetSmsHistoryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get SMS campaign history
+ */
+
+export function useGetSmsHistory<
+  TData = Awaited<ReturnType<typeof getSmsHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSmsHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get email campaign history

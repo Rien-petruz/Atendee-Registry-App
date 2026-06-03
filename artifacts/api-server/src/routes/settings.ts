@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, smtpSettingsTable, eq } from "@workspace/db";
+import { db, smtpSettingsTable, smsSettingsTable, eq } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
-import { encrypt } from "../lib/crypto.js";
+import { encrypt, decrypt } from "../lib/crypto.js";
 import { getSmtpTransport } from "../services/emailService.js";
+import { checkKudiSmsBalance } from "../services/smsService.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -80,6 +81,66 @@ router.post("/smtp/test", requireAuth, async (req: any, res: any) => {
   } catch (err: any) {
     logger.error({ err }, "SMTP test failed");
     res.status(400).json({ error: "SMTP Test Failed", message: err?.message || "Could not connect to SMTP server" });
+  }
+});
+
+router.get("/sms", requireAuth, async (_req: any, res: any) => {
+  const [settings] = await db.select().from(smsSettingsTable).limit(1);
+  if (!settings) {
+    res.json({ provider: "kudisms", senderId: "", isConfigured: false });
+    return;
+  }
+  res.json({
+    provider: settings.provider,
+    senderId: settings.senderId,
+    isConfigured: true,
+  });
+});
+
+router.post("/sms", requireAuth, async (req: any, res: any) => {
+  const { token, senderId } = req.body ?? {};
+  if (!token || !senderId) {
+    res.status(422).json({ error: "Validation Error", message: "token and senderId are required" });
+    return;
+  }
+  if (typeof senderId !== "string" || senderId.length === 0 || senderId.length > 11) {
+    res.status(422).json({ error: "Validation Error", message: "senderId must be 1-11 characters" });
+    return;
+  }
+
+  const tokenEncrypted = encrypt(token);
+  const [existing] = await db.select().from(smsSettingsTable).limit(1);
+
+  let settings;
+  if (existing) {
+    [settings] = await db
+      .update(smsSettingsTable)
+      .set({ tokenEncrypted, senderId, updatedAt: new Date() })
+      .where(eq(smsSettingsTable.id, existing.id))
+      .returning();
+  } else {
+    [settings] = await db
+      .insert(smsSettingsTable)
+      .values({ provider: "kudisms", tokenEncrypted, senderId })
+      .returning();
+  }
+
+  res.json({ provider: settings.provider, senderId: settings.senderId, isConfigured: true });
+});
+
+router.post("/sms/test", requireAuth, async (_req: any, res: any) => {
+  const [settings] = await db.select().from(smsSettingsTable).limit(1);
+  if (!settings) {
+    res.status(400).json({ error: "Bad Request", message: "SMS provider not configured" });
+    return;
+  }
+  try {
+    const token = decrypt(settings.tokenEncrypted);
+    const { balance } = await checkKudiSmsBalance(token);
+    res.json({ message: "KudiSMS connection successful", balance });
+  } catch (err: any) {
+    logger.error({ err }, "KudiSMS test failed");
+    res.status(400).json({ error: "Test Failed", message: err?.message || "Could not connect to KudiSMS" });
   }
 });
 

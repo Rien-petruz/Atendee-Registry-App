@@ -7,8 +7,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Register from "@/pages/register";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import Attendees from "@/pages/attendees";
 import Settings from "@/pages/settings";
 import Email from "@/pages/email";
+import Sms from "@/pages/sms";
 import NotFound from "@/pages/not-found";
 
 import { AdminLayout } from "@/components/layout/admin-layout";
@@ -63,8 +65,14 @@ function Router() {
       <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} />
       </Route>
+      <Route path="/attendees">
+        <ProtectedRoute component={Attendees} />
+      </Route>
       <Route path="/email">
         <ProtectedRoute component={Email} />
+      </Route>
+      <Route path="/sms">
+        <ProtectedRoute component={Sms} />
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
