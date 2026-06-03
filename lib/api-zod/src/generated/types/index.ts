@@ -45,7 +45,6 @@ export * from "./sendSmsRequestTargetGroup.js";
 export * from "./sendSmsResponse.js";
 export * from "./sendTestSmsRequest.js";
 export * from "./sendTestSmsRequestRoute.js";
-export * from "./sendTestSmsResponse.js";
 export * from "./smsBalanceResponse.js";
 export * from "./smsCampaign.js";
 export * from "./smsCampaignsResponse.js";

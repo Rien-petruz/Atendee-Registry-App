@@ -22,3 +22,4 @@ export type {
   DeleteAdminResponse as DeleteAdminResponseType,
   SendSmsResponse as SendSmsResponseType,
 } from "./generated/types/index.js";
+// Types from types/index are already exported via export * above
