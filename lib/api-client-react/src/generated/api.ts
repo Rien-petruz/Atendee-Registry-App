@@ -43,6 +43,9 @@ import type {
   SendEmailResponse,
   SendSmsRequest,
   SendSmsResponse,
+  SendTestSmsRequest,
+  SendTestSmsResponse,
+  SmsBalanceResponse,
   SmsCampaignsResponse,
   SmsSettings,
   SmsSettingsRequest,
@@ -1632,6 +1635,92 @@ export const useSaveSmsSettings = <
 };
 
 /**
+ * @summary Send a one-off test SMS and return the raw KudiSMS response for debugging
+ */
+export const getSendTestSmsUrl = () => {
+  return `/api/settings/sms/send-test`;
+};
+
+export const sendTestSms = async (
+  sendTestSmsRequest: SendTestSmsRequest,
+  options?: RequestInit,
+): Promise<SendTestSmsResponse> => {
+  return customFetch<SendTestSmsResponse>(getSendTestSmsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendTestSmsRequest),
+  });
+};
+
+export const getSendTestSmsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendTestSms>>,
+    TError,
+    { data: BodyType<SendTestSmsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendTestSms>>,
+  TError,
+  { data: BodyType<SendTestSmsRequest> },
+  TContext
+> => {
+  const mutationKey = ["sendTestSms"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendTestSms>>,
+    { data: BodyType<SendTestSmsRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendTestSms(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendTestSmsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendTestSms>>
+>;
+export type SendTestSmsMutationBody = BodyType<SendTestSmsRequest>;
+export type SendTestSmsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Send a one-off test SMS and return the raw KudiSMS response for debugging
+ */
+export const useSendTestSms = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendTestSms>>,
+    TError,
+    { data: BodyType<SendTestSmsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendTestSms>>,
+  TError,
+  { data: BodyType<SendTestSmsRequest> },
+  TContext
+> => {
+  return useMutation(getSendTestSmsMutationOptions(options));
+};
+
+/**
  * @summary Verify KudiSMS token and fetch current balance
  */
 export const getTestSmsSettingsUrl = () => {
@@ -1797,6 +1886,81 @@ export const useSendSms = <
 > => {
   return useMutation(getSendSmsMutationOptions(options));
 };
+
+/**
+ * @summary Get current KudiSMS wallet balance
+ */
+export const getGetSmsBalanceUrl = () => {
+  return `/api/sms/balance`;
+};
+
+export const getSmsBalance = async (
+  options?: RequestInit,
+): Promise<SmsBalanceResponse> => {
+  return customFetch<SmsBalanceResponse>(getGetSmsBalanceUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSmsBalanceQueryKey = () => {
+  return [`/api/sms/balance`] as const;
+};
+
+export const getGetSmsBalanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSmsBalance>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsBalance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSmsBalanceQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSmsBalance>>> = ({
+    signal,
+  }) => getSmsBalance({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsBalance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSmsBalanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSmsBalance>>
+>;
+export type GetSmsBalanceQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get current KudiSMS wallet balance
+ */
+
+export function useGetSmsBalance<
+  TData = Awaited<ReturnType<typeof getSmsBalance>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmsBalance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSmsBalanceQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get SMS campaign history

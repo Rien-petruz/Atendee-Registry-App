@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import {
-  Send, MessageSquare, History, AlertCircle, CheckCircle2, Users, CalendarDays, Globe, ExternalLink,
+  Send, MessageSquare, History, AlertCircle, CheckCircle2, Users, CalendarDays, Globe, ExternalLink, Wallet, RefreshCw, RotateCcw, Zap, Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  useSendSms, useGetSmsHistory, useGetSmsSettings,
+  useSendSms, useGetSmsHistory, useGetSmsSettings, useGetSmsBalance,
 } from "@workspace/api-client-react";
 import { getApiOptions } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +45,9 @@ function estimateSegments(text: string): { segments: number; gsm: boolean; lengt
 export default function Sms() {
   const now = new Date();
   const [sendResult, setSendResult] = useState<{ success: number; failed: number; total: number; errors?: any[] } | null>(null);
+  const [lastMessage, setLastMessage] = useState<string>("");
+  const [lastRoute, setLastRoute] = useState<"standard" | "corporate">("standard");
+  const [route, setRoute] = useState<"standard" | "corporate">("standard");
   const [scope, setScope] = useState<"all-time" | "by-month">("all-time");
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -54,6 +57,16 @@ export default function Sms() {
   const { data: settings } = useGetSmsSettings(apiOpts);
   const { mutate: sendBulkSms, isPending } = useSendSms(apiOpts);
   const { data: historyData, refetch: refetchHistory } = useGetSmsHistory(apiOpts);
+  const {
+    data: balanceData,
+    isLoading: isBalanceLoading,
+    isFetching: isBalanceFetching,
+    refetch: refetchBalance,
+    error: balanceError,
+  } = useGetSmsBalance({
+    ...apiOpts,
+    query: { enabled: !!settings?.isConfigured },
+  });
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<SmsFormValues>({
     resolver: zodResolver(smsSchema),
@@ -71,9 +84,12 @@ export default function Sms() {
 
   const onSubmit = (data: SmsFormValues) => {
     setSendResult(null);
+    setLastMessage(data.message);
+    setLastRoute(route);
     const payload: any = {
       message: data.message,
       targetGroup: data.targetGroup,
+      route,
     };
     if (scope === "by-month") {
       payload.filterMonth = selectedMonth;
@@ -89,9 +105,36 @@ export default function Sms() {
             description: `${r.successCount} of ${r.total} sent successfully.`,
           });
           refetchHistory();
+          refetchBalance();
         },
         onError: (err: any) => {
           toast({ title: "Send failed", description: err?.message || "Could not send SMS.", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleRetryFailed = () => {
+    if (!sendResult?.errors || sendResult.errors.length === 0 || !lastMessage) return;
+    const phones = sendResult.errors.map((e: any) => e.phone).filter((p: string) => !!p);
+    if (phones.length === 0) {
+      toast({ title: "Nothing to retry", description: "No retryable phone numbers in the failure list.", variant: "destructive" });
+      return;
+    }
+    sendBulkSms(
+      { data: { message: lastMessage, phones, route: lastRoute } as any },
+      {
+        onSuccess: (r: any) => {
+          setSendResult({ success: r.successCount, failed: r.failedCount, total: r.total, errors: r.errors });
+          toast({
+            title: "Retry complete",
+            description: `${r.successCount} of ${r.total} retried successfully.`,
+          });
+          refetchHistory();
+          refetchBalance();
+        },
+        onError: (err: any) => {
+          toast({ title: "Retry failed", description: err?.message || "Could not retry.", variant: "destructive" });
         },
       }
     );
@@ -110,7 +153,7 @@ export default function Sms() {
         </p>
       </div>
 
-      {!settings?.isConfigured && (
+      {!settings?.isConfigured ? (
         <Card className="glass-panel border-amber-500/30 bg-amber-500/5">
           <CardContent className="p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
@@ -123,6 +166,39 @@ export default function Sms() {
                 Go to Settings <ExternalLink className="w-3 h-3" />
               </Button>
             </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="glass-panel border-white/5">
+          <CardContent className="p-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/10">
+                <Wallet className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground leading-tight">KudiSMS wallet balance</p>
+                <h3 className="text-2xl sm:text-3xl font-display font-bold mt-1">
+                  {isBalanceLoading
+                    ? "…"
+                    : balanceError
+                      ? <span className="text-destructive text-base font-medium">Failed to load</span>
+                      : `₦${(balanceData?.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </h3>
+                {balanceError && (
+                  <p className="text-xs text-destructive mt-1">{(balanceError as any)?.message || "Unknown error"}</p>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => refetchBalance()}
+              disabled={isBalanceFetching}
+              aria-label="Refresh balance"
+              className="hover:bg-white/5"
+            >
+              <RefreshCw className={`w-4 h-4 ${isBalanceFetching ? "animate-spin" : ""}`} />
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -169,6 +245,34 @@ export default function Sms() {
             </div>
 
             <div className="space-y-2">
+              <Label>Delivery route</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRoute("standard")}
+                  className={`flex-1 flex items-start gap-3 px-4 py-3 rounded-lg border text-left transition-all ${route === "standard" ? "border-primary bg-primary/5" : "border-white/10 hover:bg-white/5"}`}
+                >
+                  <Zap className={`w-5 h-5 mt-0.5 shrink-0 ${route === "standard" ? "text-primary" : "text-muted-foreground"}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Standard</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cheapest. Best for non-promotional. DND-registered numbers may not receive the SMS.</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoute("corporate")}
+                  className={`flex-1 flex items-start gap-3 px-4 py-3 rounded-lg border text-left transition-all ${route === "corporate" ? "border-primary bg-primary/5" : "border-white/10 hover:bg-white/5"}`}
+                >
+                  <Building2 className={`w-5 h-5 mt-0.5 shrink-0 ${route === "corporate" ? "text-primary" : "text-muted-foreground"}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Corporate</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Bypasses DND. Higher cost per SMS. Use when you need guaranteed delivery to all numbers.</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label>Audience scope</Label>
               <div className="flex flex-wrap gap-2 bg-black/40 p-1 rounded-lg border border-white/5 w-fit">
                 <button
@@ -210,9 +314,15 @@ export default function Sms() {
             </div>
 
             <div className="pt-3 border-t border-white/5 flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <Users className="w-4 h-4" /> Sending to <span className="capitalize text-foreground font-medium">{watchTarget}</span>
-                {scope === "by-month" && <span> · {MONTHS[selectedMonth - 1]} {selectedYear}</span>}
+              <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4" /> <span className="capitalize text-foreground font-medium">{watchTarget}</span>
+                </span>
+                {scope === "by-month" && <span>· {MONTHS[selectedMonth - 1]} {selectedYear}</span>}
+                <span className="flex items-center gap-1.5">
+                  · {route === "corporate" ? <Building2 className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                  <span className="capitalize text-foreground font-medium">{route}</span> route
+                </span>
               </div>
               <Button
                 type="submit"
@@ -230,7 +340,7 @@ export default function Sms() {
 
       {sendResult && (
         <Card className="glass-panel border-white/5">
-          <CardContent className="p-5 space-y-2">
+          <CardContent className="p-5 space-y-3">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               <p className="font-medium">Send complete</p>
@@ -241,14 +351,31 @@ export default function Sms() {
               <span className="text-muted-foreground">{sendResult.total} total recipients</span>
             </p>
             {sendResult.errors && sendResult.errors.length > 0 && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">View {sendResult.errors.length} error(s)</summary>
-                <ul className="mt-2 text-xs space-y-0.5 max-h-40 overflow-y-auto">
-                  {sendResult.errors.slice(0, 50).map((e: any, i: number) => (
-                    <li key={i}>{e.phone}: {e.reason}</li>
+              <div className="space-y-2 pt-2 border-t border-white/5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <p className="text-sm font-medium text-destructive">{sendResult.errors.length} failed</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRetryFailed}
+                    isLoading={isPending}
+                    disabled={!lastMessage}
+                    className="gap-2 border-white/10"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Retry {sendResult.errors.length} failed
+                  </Button>
+                </div>
+                <ul className="text-xs space-y-1 max-h-48 overflow-y-auto bg-black/20 rounded-md p-2 border border-white/5">
+                  {sendResult.errors.slice(0, 100).map((e: any, i: number) => (
+                    <li key={i} className="flex flex-col sm:flex-row sm:gap-2">
+                      <span className="text-foreground font-medium">{e.phone}</span>
+                      <span className="text-muted-foreground">{e.reason}</span>
+                    </li>
                   ))}
                 </ul>
-              </details>
+              </div>
             )}
           </CardContent>
         </Card>

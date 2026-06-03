@@ -370,6 +370,26 @@ export const SaveSmsSettingsResponse = zod.object({
 });
 
 /**
+ * @summary Send a one-off test SMS and return the raw KudiSMS response for debugging
+ */
+export const SendTestSmsBody = zod.object({
+  phone: zod.string(),
+  message: zod.string().optional(),
+  route: zod.enum(["standard", "corporate"]).optional(),
+  senderIdOverride: zod.string().optional(),
+});
+
+export const SendTestSmsResponse = zod.object({
+  url: zod
+    .string()
+    .describe(
+      "The full URL we hit on KudiSMS (token redacted) so you can compare encoding",
+    ),
+  normalizedPhone: zod.string().nullish(),
+  raw: zod.unknown().describe("The verbatim JSON response from KudiSMS"),
+});
+
+/**
  * @summary Verify KudiSMS token and fetch current balance
  */
 export const TestSmsSettingsResponse = zod.object({
@@ -386,9 +406,21 @@ export const sendSmsBodyFilterMonthMax = 12;
 
 export const SendSmsBody = zod.object({
   message: zod.string().min(1).max(sendSmsBodyMessageMax),
-  targetGroup: zod.enum(["all", "newcomers", "returning"]),
+  targetGroup: zod.enum(["all", "newcomers", "returning"]).optional(),
   filterMonth: zod.number().min(1).max(sendSmsBodyFilterMonthMax).optional(),
   filterYear: zod.number().optional(),
+  phones: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "When provided, send only to these phone numbers (used for retrying failed sends). targetGroup is ignored.",
+    ),
+  route: zod
+    .enum(["standard", "corporate"])
+    .optional()
+    .describe(
+      "Which KudiSMS route to use. 'standard' is cheaper; 'corporate' bypasses DND restrictions but costs more. Defaults to standard.",
+    ),
 });
 
 export const SendSmsResponse = zod.object({
@@ -402,6 +434,13 @@ export const SendSmsResponse = zod.object({
       reason: zod.string(),
     }),
   ),
+});
+
+/**
+ * @summary Get current KudiSMS wallet balance
+ */
+export const GetSmsBalanceResponse = zod.object({
+  balance: zod.number(),
 });
 
 /**

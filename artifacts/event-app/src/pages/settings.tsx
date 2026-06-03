@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   useGetSmtpSettings, useSaveSmtpSettings, useTestSmtpSettings,
-  useGetSmsSettings, useSaveSmsSettings, useTestSmsSettings,
+  useGetSmsSettings, useSaveSmsSettings, useTestSmsSettings, useSendTestSms,
   useListAdmins, useCreateAdmin, useDeleteAdmin, useGetMe,
   getListAdminsQueryKey,
   getGetSmsSettingsQueryKey,
@@ -274,7 +274,7 @@ export default function Settings() {
 
 const smsSchema = z.object({
   token: z.string().min(1, "Token is required"),
-  senderId: z.string().min(1, "Sender ID required").max(11, "Max 11 characters"),
+  senderId: z.string().min(1, "Sender ID required").max(20, "Max 20 characters"),
 });
 type SmsFormValues = z.infer<typeof smsSchema>;
 
@@ -286,6 +286,13 @@ function SmsSection() {
   const { data: settings, isLoading } = useGetSmsSettings(apiOpts);
   const { mutate: save, isPending: isSaving } = useSaveSmsSettings(apiOpts);
   const { mutate: test, isPending: isTesting } = useTestSmsSettings(apiOpts);
+  const { mutate: sendTest, isPending: isSendingTest } = useSendTestSms(apiOpts);
+
+  const [showTest, setShowTest] = React.useState(false);
+  const [testPhone, setTestPhone] = React.useState("");
+  const [testSenderOverride, setTestSenderOverride] = React.useState("");
+  const [testRoute, setTestRoute] = React.useState<"standard" | "corporate">("standard");
+  const [testResult, setTestResult] = React.useState<any>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<SmsFormValues>({
     resolver: zodResolver(smsSchema),
@@ -316,15 +323,37 @@ function SmsSection() {
   const handleTest = () => {
     test(undefined, {
       onSuccess: (r: any) => {
+        const balanceLabel = r?.balance && r.balance > 0
+          ? `Balance: ₦${r.balance.toLocaleString()}`
+          : `Could not parse balance from response: ${JSON.stringify(r?.raw ?? r).slice(0, 200)}`;
         toast({
           title: "KudiSMS connection successful",
-          description: `Balance: ${r?.balance ?? "?"}`,
+          description: balanceLabel,
         });
       },
       onError: (err: any) => {
         toast({ title: "Test failed", description: err?.message || "Could not connect to KudiSMS.", variant: "destructive" });
       },
     });
+  };
+
+  const handleSendTest = () => {
+    if (!testPhone) {
+      toast({ title: "Phone required", description: "Enter a phone number to test with.", variant: "destructive" });
+      return;
+    }
+    setTestResult(null);
+    sendTest(
+      { data: { phone: testPhone, route: testRoute, senderIdOverride: testSenderOverride || undefined } },
+      {
+        onSuccess: (r: any) => {
+          setTestResult(r);
+        },
+        onError: (err: any) => {
+          toast({ title: "Test send failed", description: err?.message || "Could not run test send.", variant: "destructive" });
+        },
+      }
+    );
   };
 
   return (
@@ -362,8 +391,8 @@ function SmsSection() {
                 <Label htmlFor="sms-sender">Sender ID <span className="text-destructive">*</span></Label>
                 <Input
                   id="sms-sender"
-                  placeholder="e.g. NEWWINE"
-                  maxLength={11}
+                  placeholder="e.g. TNP IGNITE"
+                  maxLength={20}
                   {...register("senderId")}
                   className={`bg-black/30 border-white/10 ${errors.senderId ? "border-destructive" : ""}`}
                 />
@@ -376,7 +405,7 @@ function SmsSection() {
                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
                 {settings?.isConfigured ? "Token saved & encrypted." : "Not configured yet."}
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Button
                   type="button"
                   variant="outline"
@@ -385,14 +414,86 @@ function SmsSection() {
                   disabled={!settings?.isConfigured}
                   className="flex-1 sm:flex-initial border-white/10 hover:bg-white/5"
                 >
-                  Test &amp; Check Balance
+                  Check Balance
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTest((s) => !s)}
+                  disabled={!settings?.isConfigured}
+                  className="flex-1 sm:flex-initial border-white/10 hover:bg-white/5"
+                >
+                  {showTest ? "Hide test send" : "Send test SMS"}
                 </Button>
                 <Button type="submit" variant="gradient" isLoading={isSaving} className="flex-1 sm:flex-initial">
-                  Save SMS Settings
+                  Save Settings
                 </Button>
               </div>
             </div>
           </form>
+        )}
+
+        {showTest && settings?.isConfigured && (
+          <div className="mt-5 pt-5 border-t border-white/5 space-y-4">
+            <div>
+              <p className="font-medium text-sm">Send one test SMS</p>
+              <p className="text-xs text-muted-foreground">Sends a single SMS to one phone using the saved settings. Shows KudiSMS's exact response so we can debug sender ID / route issues.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="test-phone">Test phone <span className="text-destructive">*</span></Label>
+                <Input
+                  id="test-phone"
+                  placeholder="e.g. 08030000000"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="bg-black/30 border-white/10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="test-sender-override">Sender ID override (optional)</Label>
+                <Input
+                  id="test-sender-override"
+                  placeholder="Leave blank to use saved sender"
+                  value={testSenderOverride}
+                  onChange={(e) => setTestSenderOverride(e.target.value)}
+                  className="bg-black/30 border-white/10"
+                />
+                <p className="text-xs text-muted-foreground">Try variants here (TNPIGNITE, TNP_IGNITE, etc.) without changing the saved value.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(["standard", "corporate"] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setTestRoute(r)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all border ${testRoute === r ? "border-primary bg-primary/10 text-primary" : "border-white/10 text-muted-foreground hover:bg-white/5"}`}
+                >
+                  {r} route
+                </button>
+              ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="gradient"
+                onClick={handleSendTest}
+                isLoading={isSendingTest}
+                className="ml-auto"
+              >
+                Send test
+              </Button>
+            </div>
+
+            {testResult && (
+              <div className="rounded-lg border border-white/10 bg-black/40 p-3 text-xs font-mono space-y-2 overflow-x-auto">
+                <div><span className="text-muted-foreground">URL:</span> <span className="break-all">{testResult.url || "(invalid phone)"}</span></div>
+                <div><span className="text-muted-foreground">Normalized phone:</span> {testResult.normalizedPhone ?? "null"}</div>
+                <div className="text-muted-foreground">Raw KudiSMS response:</div>
+                <pre className="whitespace-pre-wrap break-all">{JSON.stringify(testResult.raw, null, 2)}</pre>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

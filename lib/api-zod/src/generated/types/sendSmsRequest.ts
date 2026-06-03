@@ -5,6 +5,7 @@
  * Event Attendee App API
  * OpenAPI spec version: 0.1.0
  */
+import type { SendSmsRequestRoute } from "./sendSmsRequestRoute.js";
 import type { SendSmsRequestTargetGroup } from "./sendSmsRequestTargetGroup.js";
 
 export interface SendSmsRequest {
@@ -13,11 +14,15 @@ export interface SendSmsRequest {
    * @maxLength 1600
    */
   message: string;
-  targetGroup: SendSmsRequestTargetGroup;
+  targetGroup?: SendSmsRequestTargetGroup;
   /**
    * @minimum 1
    * @maximum 12
    */
   filterMonth?: number;
   filterYear?: number;
+  /** When provided, send only to these phone numbers (used for retrying failed sends). targetGroup is ignored. */
+  phones?: string[];
+  /** Which KudiSMS route to use. 'standard' is cheaper; 'corporate' bypasses DND restrictions but costs more. Defaults to standard. */
+  route?: SendSmsRequestRoute;
 }

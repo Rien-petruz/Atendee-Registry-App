@@ -1,19 +1,32 @@
 import { Router } from "express";
-import { db, smsCampaignsTable, desc } from "@workspace/db";
+import { db, smsSettingsTable, smsCampaignsTable, desc } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
-import { sendBulkSms } from "../services/smsService.js";
+import { decrypt } from "../lib/crypto.js";
+import { sendBulkSms, checkKudiSmsBalance } from "../services/smsService.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
 
-router.post("/send", requireAuth, async (req: any, res: any) => {
-  const { message, targetGroup, filterMonth, filterYear } = req.body ?? {};
-  if (!message || !targetGroup) {
-    res.status(400).json({ error: "Bad Request", message: "message and targetGroup are required" });
+router.get("/balance", requireAuth, async (_req: any, res: any) => {
+  const [settings] = await db.select().from(smsSettingsTable).limit(1);
+  if (!settings) {
+    res.status(400).json({ error: "Bad Request", message: "SMS provider not configured" });
     return;
   }
-  if (!["all", "newcomers", "returning"].includes(targetGroup)) {
-    res.status(400).json({ error: "Bad Request", message: "targetGroup must be all, newcomers, or returning" });
+  try {
+    const token = decrypt(settings.tokenEncrypted);
+    const { balance } = await checkKudiSmsBalance(token);
+    res.json({ balance });
+  } catch (err: any) {
+    logger.error({ err }, "Failed to fetch KudiSMS balance");
+    res.status(502).json({ error: "Upstream Error", message: err?.message || "Failed to fetch balance" });
+  }
+});
+
+router.post("/send", requireAuth, async (req: any, res: any) => {
+  const { message, targetGroup, filterMonth, filterYear, phones, route } = req.body ?? {};
+  if (!message) {
+    res.status(400).json({ error: "Bad Request", message: "message is required" });
     return;
   }
   if (typeof message !== "string" || message.length === 0 || message.length > 1600) {
@@ -21,8 +34,29 @@ router.post("/send", requireAuth, async (req: any, res: any) => {
     return;
   }
 
+  const isRetry = Array.isArray(phones) && phones.length > 0;
+  if (!isRetry) {
+    if (!targetGroup) {
+      res.status(400).json({ error: "Bad Request", message: "targetGroup is required when phones are not provided" });
+      return;
+    }
+    if (!["all", "newcomers", "returning"].includes(targetGroup)) {
+      res.status(400).json({ error: "Bad Request", message: "targetGroup must be all, newcomers, or returning" });
+      return;
+    }
+  }
+
+  const normalizedRoute = route === "corporate" ? "corporate" : "standard";
+
   try {
-    const result = await sendBulkSms(message, targetGroup, filterMonth, filterYear);
+    const result = await sendBulkSms({
+      message,
+      targetGroup: isRetry ? undefined : targetGroup,
+      filterMonth: isRetry ? undefined : filterMonth,
+      filterYear: isRetry ? undefined : filterYear,
+      phones: isRetry ? phones : undefined,
+      route: normalizedRoute,
+    });
     res.json({
       ...result,
       message: `SMS sent to ${result.successCount} of ${result.total} recipients`,

@@ -568,6 +568,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /settings/sms/send-test:
+    post:
+      operationId: sendTestSms
+      tags: [settings]
+      summary: Send a one-off test SMS and return the raw KudiSMS response for debugging
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendTestSmsRequest"
+      responses:
+        "200":
+          description: Test SMS attempted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendTestSmsResponse"
+        "400":
+          description: Test failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /settings/sms/test:
     post:
       operationId: testSmsSettings
@@ -623,6 +656,39 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sms/balance:
+    get:
+      operationId: getSmsBalance
+      tags: [sms]
+      summary: Get current KudiSMS wallet balance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsBalanceResponse"
+        "400":
+          description: SMS provider not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream KudiSMS error
           content:
             application/json:
               schema:
@@ -1154,6 +1220,36 @@ components:
         - token
         - senderId
 
+    SendTestSmsRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+        message:
+          type: string
+        route:
+          type: string
+          enum: [standard, corporate]
+        senderIdOverride:
+          type: string
+      required:
+        - phone
+
+    SendTestSmsResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          description: The full URL we hit on KudiSMS (token redacted) so you can compare encoding
+        normalizedPhone:
+          type: string
+          nullable: true
+        raw:
+          description: The verbatim JSON response from KudiSMS
+      required:
+        - url
+        - raw
+
     SmsTestResponse:
       type: object
       properties:
@@ -1181,9 +1277,17 @@ components:
           maximum: 12
         filterYear:
           type: integer
+        phones:
+          type: array
+          items:
+            type: string
+          description: When provided, send only to these phone numbers (used for retrying failed sends). targetGroup is ignored.
+        route:
+          type: string
+          enum: [standard, corporate]
+          description: Which KudiSMS route to use. 'standard' is cheaper; 'corporate' bypasses DND restrictions but costs more. Defaults to standard.
       required:
         - message
-        - targetGroup
 
     SmsSendError:
       type: object
@@ -1217,6 +1321,14 @@ components:
         - total
         - message
         - errors
+
+    SmsBalanceResponse:
+      type: object
+      properties:
+        balance:
+          type: number
+      required:
+        - balance
 
     SmsCampaign:
       type: object

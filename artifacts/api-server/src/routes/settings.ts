@@ -3,7 +3,7 @@ import { db, smtpSettingsTable, smsSettingsTable, eq } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
 import { encrypt, decrypt } from "../lib/crypto.js";
 import { getSmtpTransport } from "../services/emailService.js";
-import { checkKudiSmsBalance } from "../services/smsService.js";
+import { checkKudiSmsBalance, sendOneTestSms } from "../services/smsService.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -103,8 +103,8 @@ router.post("/sms", requireAuth, async (req: any, res: any) => {
     res.status(422).json({ error: "Validation Error", message: "token and senderId are required" });
     return;
   }
-  if (typeof senderId !== "string" || senderId.length === 0 || senderId.length > 11) {
-    res.status(422).json({ error: "Validation Error", message: "senderId must be 1-11 characters" });
+  if (typeof senderId !== "string" || senderId.length === 0 || senderId.length > 20) {
+    res.status(422).json({ error: "Validation Error", message: "senderId must be 1-20 characters" });
     return;
   }
 
@@ -128,6 +128,27 @@ router.post("/sms", requireAuth, async (req: any, res: any) => {
   res.json({ provider: settings.provider, senderId: settings.senderId, isConfigured: true });
 });
 
+router.post("/sms/send-test", requireAuth, async (req: any, res: any) => {
+  const { phone, message, route, senderIdOverride } = req.body ?? {};
+  if (!phone || typeof phone !== "string") {
+    res.status(422).json({ error: "Validation Error", message: "phone is required" });
+    return;
+  }
+  const testMessage = typeof message === "string" && message.length > 0 ? message : "Test from attendee registry app";
+  try {
+    const { url, raw, normalizedPhone } = await sendOneTestSms({
+      phone,
+      message: testMessage,
+      route: route === "corporate" ? "corporate" : "standard",
+      senderIdOverride: typeof senderIdOverride === "string" && senderIdOverride.length > 0 ? senderIdOverride : undefined,
+    });
+    res.json({ url, raw, normalizedPhone });
+  } catch (err: any) {
+    logger.error({ err }, "Test SMS failed");
+    res.status(400).json({ error: "Test Failed", message: err?.message || "Could not send test SMS" });
+  }
+});
+
 router.post("/sms/test", requireAuth, async (_req: any, res: any) => {
   const [settings] = await db.select().from(smsSettingsTable).limit(1);
   if (!settings) {
@@ -136,8 +157,8 @@ router.post("/sms/test", requireAuth, async (_req: any, res: any) => {
   }
   try {
     const token = decrypt(settings.tokenEncrypted);
-    const { balance } = await checkKudiSmsBalance(token);
-    res.json({ message: "KudiSMS connection successful", balance });
+    const { balance, raw } = await checkKudiSmsBalance(token);
+    res.json({ message: "KudiSMS connection successful", balance, raw });
   } catch (err: any) {
     logger.error({ err }, "KudiSMS test failed");
     res.status(400).json({ error: "Test Failed", message: err?.message || "Could not connect to KudiSMS" });

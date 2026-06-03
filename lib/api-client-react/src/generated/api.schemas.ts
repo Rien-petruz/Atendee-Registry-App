@@ -254,6 +254,29 @@ export interface SmsSettingsRequest {
   senderId: string;
 }
 
+export type SendTestSmsRequestRoute =
+  (typeof SendTestSmsRequestRoute)[keyof typeof SendTestSmsRequestRoute];
+
+export const SendTestSmsRequestRoute = {
+  standard: "standard",
+  corporate: "corporate",
+} as const;
+
+export interface SendTestSmsRequest {
+  phone: string;
+  message?: string;
+  route?: SendTestSmsRequestRoute;
+  senderIdOverride?: string;
+}
+
+export interface SendTestSmsResponse {
+  /** The full URL we hit on KudiSMS (token redacted) so you can compare encoding */
+  url: string;
+  normalizedPhone?: string | null;
+  /** The verbatim JSON response from KudiSMS */
+  raw: unknown;
+}
+
 export interface SmsTestResponse {
   message: string;
   balance: number;
@@ -268,19 +291,34 @@ export const SendSmsRequestTargetGroup = {
   returning: "returning",
 } as const;
 
+/**
+ * Which KudiSMS route to use. 'standard' is cheaper; 'corporate' bypasses DND restrictions but costs more. Defaults to standard.
+ */
+export type SendSmsRequestRoute =
+  (typeof SendSmsRequestRoute)[keyof typeof SendSmsRequestRoute];
+
+export const SendSmsRequestRoute = {
+  standard: "standard",
+  corporate: "corporate",
+} as const;
+
 export interface SendSmsRequest {
   /**
    * @minLength 1
    * @maxLength 1600
    */
   message: string;
-  targetGroup: SendSmsRequestTargetGroup;
+  targetGroup?: SendSmsRequestTargetGroup;
   /**
    * @minimum 1
    * @maximum 12
    */
   filterMonth?: number;
   filterYear?: number;
+  /** When provided, send only to these phone numbers (used for retrying failed sends). targetGroup is ignored. */
+  phones?: string[];
+  /** Which KudiSMS route to use. 'standard' is cheaper; 'corporate' bypasses DND restrictions but costs more. Defaults to standard. */
+  route?: SendSmsRequestRoute;
 }
 
 export interface SmsSendError {
@@ -294,6 +332,10 @@ export interface SendSmsResponse {
   total: number;
   message: string;
   errors: SmsSendError[];
+}
+
+export interface SmsBalanceResponse {
+  balance: number;
 }
 
 export interface SmsCampaign {

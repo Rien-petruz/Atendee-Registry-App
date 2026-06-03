@@ -1,5 +1,6 @@
 import { db, smsSettingsTable, attendeesTable, smsCampaignsTable, eq, and, sql } from "@workspace/db";
 import { decrypt } from "../lib/crypto.js";
+import { logger } from "../lib/logger.js";
 
 const KUDISMS_BASE = "https://my.kudisms.net/api";
 
@@ -13,14 +14,12 @@ export function normalizeNigerianPhone(raw: string): string | null {
 }
 
 async function kudiSmsRequest(path: string, params: Record<string, string>): Promise<any> {
-  const url = `${KUDISMS_BASE}${path}`;
-  const body = new URLSearchParams(params);
+  const query = Object.entries(params)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+  const url = `${KUDISMS_BASE}${path}?${query}`;
 
-  const response: any = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
+  const response: any = await fetch(url, { method: "GET" });
 
   const text: string = await response.text();
   try {
@@ -30,12 +29,38 @@ async function kudiSmsRequest(path: string, params: Record<string, string>): Pro
   }
 }
 
+function extractBalance(result: any): number {
+  const balanceKeyPattern = /(balance|credit|wallet|bal)/i;
+  const seen = new WeakSet<object>();
+
+  function walk(node: any): number | null {
+    if (node == null) return null;
+    if (typeof node === "object") {
+      if (seen.has(node)) return null;
+      seen.add(node);
+      for (const [key, value] of Object.entries(node)) {
+        if (balanceKeyPattern.test(key)) {
+          const num = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.\-]/g, ""));
+          if (Number.isFinite(num) && num !== 0) return num;
+        }
+        const nested = walk(value);
+        if (nested != null) return nested;
+      }
+      return null;
+    }
+    return null;
+  }
+
+  return walk(result) ?? 0;
+}
+
 export async function checkKudiSmsBalance(token: string): Promise<{ balance: number; raw: any }> {
   const result = await kudiSmsRequest("/balance", { token });
   if (result?.status === "error") {
     throw new Error(`KudiSMS balance check failed (${result.error_code}): ${result.msg}`);
   }
-  const balance = Number(result?.data?.balance ?? result?.balance ?? 0);
+  const fromMsg = Number(String(result?.msg ?? "").replace(/[^0-9.\-]/g, ""));
+  const balance = Number.isFinite(fromMsg) && fromMsg > 0 ? fromMsg : extractBalance(result);
   return { balance, raw: result };
 }
 
@@ -46,76 +71,130 @@ export interface BulkSmsResult {
   errors: { phone: string; reason: string }[];
 }
 
-export async function sendBulkSms(
-  messageTemplate: string,
-  targetGroup: "all" | "newcomers" | "returning",
-  filterMonth?: number,
-  filterYear?: number,
-): Promise<BulkSmsResult> {
+function isKudiSmsSuccess(result: any): boolean {
+  if (!result) return false;
+  const status = String(result.status ?? "").toLowerCase();
+  if (status === "ok" || status === "success") return true;
+  const code = String(result.error_code ?? "");
+  if (code === "000") return true;
+  return false;
+}
+
+export type KudiSmsRoute = "standard" | "corporate";
+
+export async function sendOneTestSms(opts: { phone: string; message: string; route?: KudiSmsRoute; senderIdOverride?: string }): Promise<{ url: string; raw: any; normalizedPhone: string | null }> {
+  const [settings] = await db.select().from(smsSettingsTable).limit(1);
+  if (!settings) throw new Error("SMS provider not configured");
+
+  const token = decrypt(settings.tokenEncrypted);
+  const senderID = opts.senderIdOverride ?? settings.senderId;
+  const normalizedPhone = normalizeNigerianPhone(opts.phone);
+  if (!normalizedPhone) return { url: "", raw: { localError: "Invalid Nigerian phone number" }, normalizedPhone: null };
+
+  const path = opts.route === "corporate" ? "/corporate" : "/sms";
+  const params = { token, senderID, recipients: normalizedPhone, message: opts.message };
+  const query = Object.entries(params)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+  const url = `${KUDISMS_BASE}${path}?${query}`;
+  const safeUrl = url.replace(token, "REDACTED");
+
+  const response: any = await fetch(url, { method: "GET" });
+  const text: string = await response.text();
+  let raw: any;
+  try { raw = JSON.parse(text); } catch { raw = { nonJson: text.slice(0, 500) }; }
+  return { url: safeUrl, raw, normalizedPhone };
+}
+
+interface SendOptions {
+  message: string;
+  targetGroup?: "all" | "newcomers" | "returning";
+  filterMonth?: number;
+  filterYear?: number;
+  phones?: string[];
+  route?: KudiSmsRoute;
+}
+
+export async function sendBulkSms(opts: SendOptions): Promise<BulkSmsResult> {
   const [settings] = await db.select().from(smsSettingsTable).limit(1);
   if (!settings) throw new Error("SMS provider not configured");
 
   const token = decrypt(settings.tokenEncrypted);
   const senderID = settings.senderId;
 
-  const conditions: any[] = [];
-  if (targetGroup === "newcomers") conditions.push(eq(attendeesTable.isNewcomer, true));
-  else if (targetGroup === "returning") conditions.push(eq(attendeesTable.isNewcomer, false));
+  let recipientPairs: { phone: string; name: string; email: string }[] = [];
 
-  if ((filterMonth && filterMonth >= 1 && filterMonth <= 12) || (filterYear && filterYear > 0)) {
-    const monthCond = filterMonth && filterMonth >= 1 && filterMonth <= 12 ? sql` AND att.month = ${filterMonth}` : sql``;
-    const yearCond = filterYear && filterYear > 0 ? sql` AND att.year = ${filterYear}` : sql``;
-    conditions.push(
-      sql`EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id}${monthCond}${yearCond})`
-    );
+  if (opts.phones && opts.phones.length > 0) {
+    recipientPairs = opts.phones.map((p) => ({ phone: p, name: "", email: "" }));
+  } else {
+    const conditions: any[] = [];
+    if (opts.targetGroup === "newcomers") conditions.push(eq(attendeesTable.isNewcomer, true));
+    else if (opts.targetGroup === "returning") conditions.push(eq(attendeesTable.isNewcomer, false));
+
+    if ((opts.filterMonth && opts.filterMonth >= 1 && opts.filterMonth <= 12) || (opts.filterYear && opts.filterYear > 0)) {
+      const monthCond = opts.filterMonth && opts.filterMonth >= 1 && opts.filterMonth <= 12 ? sql` AND att.month = ${opts.filterMonth}` : sql``;
+      const yearCond = opts.filterYear && opts.filterYear > 0 ? sql` AND att.year = ${opts.filterYear}` : sql``;
+      conditions.push(
+        sql`EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id}${monthCond}${yearCond})`
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const recipients = await db.select().from(attendeesTable).where(whereClause);
+    recipientPairs = recipients.map((r) => ({ phone: r.phoneNumber, name: r.fullName, email: r.email }));
   }
-
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-  const recipients = await db.select().from(attendeesTable).where(whereClause);
 
   const errors: { phone: string; reason: string }[] = [];
   let successCount = 0;
   let failedCount = 0;
 
-  for (const recipient of recipients) {
-    const phone = normalizeNigerianPhone(recipient.phoneNumber);
+  for (const recipient of recipientPairs) {
+    const phone = normalizeNigerianPhone(recipient.phone);
     if (!phone) {
       failedCount++;
-      errors.push({ phone: recipient.phoneNumber, reason: "Invalid Nigerian phone number" });
+      errors.push({ phone: recipient.phone, reason: "Invalid Nigerian phone number" });
       continue;
     }
 
-    const personalized = messageTemplate
-      .replace(/\{\{name\}\}/g, recipient.fullName)
-      .replace(/\{\{email\}\}/g, recipient.email);
+    const personalized = opts.message
+      .replace(/\{\{name\}\}/g, recipient.name || "")
+      .replace(/\{\{email\}\}/g, recipient.email || "");
 
+    const path = opts.route === "corporate" ? "/corporate" : "/sms";
     try {
-      const result = await kudiSmsRequest("/sms", {
+      logger.info({ phone, route: opts.route, path, senderID }, "Sending SMS via KudiSMS");
+      const result = await kudiSmsRequest(path, {
         token,
         senderID,
         recipients: phone,
         message: personalized,
       });
-      if (result?.status === "error") {
-        failedCount++;
-        errors.push({ phone, reason: `${result.error_code}: ${result.msg}` });
-      } else {
+      logger.info({ phone, route: opts.route, kudismsStatus: result?.status, kudismsErrorCode: result?.error_code, kudismsMsg: result?.msg }, "KudiSMS send result");
+      if (isKudiSmsSuccess(result)) {
         successCount++;
+      } else {
+        failedCount++;
+        const reason = result?.msg
+          ? `${result.error_code ?? "?"}: ${result.msg}`
+          : `Unrecognized response: ${JSON.stringify(result).slice(0, 200)}`;
+        errors.push({ phone, reason });
+        logger.warn({ phone, route: opts.route, reason }, "KudiSMS send failed");
       }
     } catch (err: any) {
       failedCount++;
       errors.push({ phone, reason: err?.message || "Request failed" });
+      logger.error({ phone, route: opts.route, err }, "KudiSMS request error");
     }
   }
 
-  const total = recipients.length;
+  const total = recipientPairs.length;
 
   try {
     await db.insert(smsCampaignsTable).values({
-      message: messageTemplate,
-      targetGroup,
-      filterMonth: filterMonth ?? null,
-      filterYear: filterYear ?? null,
+      message: opts.message,
+      targetGroup: opts.targetGroup ?? "retry",
+      filterMonth: opts.filterMonth ?? null,
+      filterYear: opts.filterYear ?? null,
       successCount,
       failedCount,
       total,
