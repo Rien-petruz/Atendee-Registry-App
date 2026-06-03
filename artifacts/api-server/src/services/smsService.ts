@@ -91,12 +91,14 @@ export async function sendOneTestSms(opts: { phone: string; message: string; rou
   const normalizedPhone = normalizeNigerianPhone(opts.phone);
   if (!normalizedPhone) return { url: "", raw: { localError: "Invalid Nigerian phone number" }, normalizedPhone: null };
 
-  const path = opts.route === "corporate" ? "/corporate" : "/sms";
-  const params = { token, senderID, recipients: normalizedPhone, message: opts.message };
+  const params: Record<string, string> = { token, senderID, recipients: normalizedPhone, message: opts.message };
+  if (opts.route === "corporate") {
+    params.gateway = "corporate";
+  }
   const query = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join("&");
-  const url = `${KUDISMS_BASE}${path}?${query}`;
+  const url = `${KUDISMS_BASE}/sms?${query}`;
   const safeUrl = url.replace(token, "REDACTED");
 
   const response: any = await fetch(url, { method: "GET" });
@@ -160,15 +162,18 @@ export async function sendBulkSms(opts: SendOptions): Promise<BulkSmsResult> {
       .replace(/\{\{name\}\}/g, recipient.name || "")
       .replace(/\{\{email\}\}/g, recipient.email || "");
 
-    const path = opts.route === "corporate" ? "/corporate" : "/sms";
     try {
-      logger.info({ phone, route: opts.route, path, senderID }, "Sending SMS via KudiSMS");
-      const result = await kudiSmsRequest(path, {
+      logger.info({ phone, route: opts.route, senderID }, "Sending SMS via KudiSMS");
+      const params: Record<string, string> = {
         token,
         senderID,
         recipients: phone,
         message: personalized,
-      });
+      };
+      if (opts.route === "corporate") {
+        params.gateway = "corporate";
+      }
+      const result = await kudiSmsRequest("/sms", params);
       logger.info({ phone, route: opts.route, kudismsStatus: result?.status, kudismsErrorCode: result?.error_code, kudismsMsg: result?.msg }, "KudiSMS send result");
       if (isKudiSmsSuccess(result)) {
         successCount++;
