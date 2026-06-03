@@ -46,7 +46,7 @@ router.post("/send", requireAuth, async (req: any, res: any) => {
     }
   }
 
-  const normalizedRoute = route === "corporate" ? "corporate" : "standard";
+  const normalizedRoute = route === "G1" ? "G1" : "standard";
 
   try {
     const result = await sendBulkSms({

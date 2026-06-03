@@ -139,7 +139,7 @@ router.post("/sms/send-test", requireAuth, async (req: any, res: any) => {
     const { url, raw, normalizedPhone } = await sendOneTestSms({
       phone,
       message: testMessage,
-      route: route === "corporate" ? "corporate" : "standard",
+      route: route === "G1" ? "G1" : "standard",
       senderIdOverride: typeof senderIdOverride === "string" && senderIdOverride.length > 0 ? senderIdOverride : undefined,
     });
     res.json({ url, raw, normalizedPhone });
