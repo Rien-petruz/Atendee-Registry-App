@@ -80,7 +80,7 @@ function isKudiSmsSuccess(result: any): boolean {
   return false;
 }
 
-export type KudiSmsRoute = "standard" | "corporate";
+export type KudiSmsRoute = "G1" | "G2" | "standard";
 
 export async function sendOneTestSms(opts: { phone: string; message: string; route?: KudiSmsRoute; senderIdOverride?: string }): Promise<{ url: string; raw: any; normalizedPhone: string | null }> {
   const [settings] = await db.select().from(smsSettingsTable).limit(1);
@@ -92,8 +92,8 @@ export async function sendOneTestSms(opts: { phone: string; message: string; rou
   if (!normalizedPhone) return { url: "", raw: { localError: "Invalid Nigerian phone number" }, normalizedPhone: null };
 
   const params: Record<string, string> = { token, senderID, recipients: normalizedPhone, message: opts.message };
-  if (opts.route === "corporate") {
-    params.gateway = "corporate";
+  if (opts.route && opts.route !== "standard") {
+    params.gateway = opts.route;
   }
   const query = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -170,8 +170,8 @@ export async function sendBulkSms(opts: SendOptions): Promise<BulkSmsResult> {
         recipients: phone,
         message: personalized,
       };
-      if (opts.route === "corporate") {
-        params.gateway = "corporate";
+      if (opts.route && opts.route !== "standard") {
+        params.gateway = opts.route;
       }
       const result = await kudiSmsRequest("/sms", params);
       logger.info({ phone, route: opts.route, kudismsStatus: result?.status, kudismsErrorCode: result?.error_code, kudismsMsg: result?.msg }, "KudiSMS send result");

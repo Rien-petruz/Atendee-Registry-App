@@ -46,8 +46,8 @@ export default function Sms() {
   const now = new Date();
   const [sendResult, setSendResult] = useState<{ success: number; failed: number; total: number; errors?: any[] } | null>(null);
   const [lastMessage, setLastMessage] = useState<string>("");
-  const [lastRoute, setLastRoute] = useState<"standard" | "corporate">("standard");
-  const [route, setRoute] = useState<"standard" | "corporate">("standard");
+  const [lastRoute, setLastRoute] = useState<"standard" | "G1">("standard");
+  const [route, setRoute] = useState<"standard" | "G1">("standard");
   const [scope, setScope] = useState<"all-time" | "by-month">("all-time");
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -260,13 +260,13 @@ export default function Sms() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRoute("corporate")}
-                  className={`flex-1 flex items-start gap-3 px-4 py-3 rounded-lg border text-left transition-all ${route === "corporate" ? "border-primary bg-primary/5" : "border-white/10 hover:bg-white/5"}`}
+                  onClick={() => setRoute("G1")}
+                  className={`flex-1 flex items-start gap-3 px-4 py-3 rounded-lg border text-left transition-all ${route === "G1" ? "border-primary bg-primary/5" : "border-white/10 hover:bg-white/5"}`}
                 >
-                  <Building2 className={`w-5 h-5 mt-0.5 shrink-0 ${route === "corporate" ? "text-primary" : "text-muted-foreground"}`} />
+                  <Building2 className={`w-5 h-5 mt-0.5 shrink-0 ${route === "G1" ? "text-primary" : "text-muted-foreground"}`} />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">Corporate</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Bypasses DND. Higher cost per SMS. Use when you need guaranteed delivery to all numbers.</p>
+                    <p className="text-sm font-medium">G1 Gateway (Non-DND)</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Delivers to non-DND numbers. Refunds charges for DND-registered numbers. Reaches most Nigerian networks.</p>
                   </div>
                 </button>
               </div>
@@ -320,7 +320,7 @@ export default function Sms() {
                 </span>
                 {scope === "by-month" && <span>· {MONTHS[selectedMonth - 1]} {selectedYear}</span>}
                 <span className="flex items-center gap-1.5">
-                  · {route === "corporate" ? <Building2 className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                  · {route === "G1" ? <Building2 className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                   <span className="capitalize text-foreground font-medium">{route}</span> route
                 </span>
               </div>
