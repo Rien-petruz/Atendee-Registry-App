@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Mail, MessageSquare, Settings, LogOut, Hexagon, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Mail, MessageSquare, Settings, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -24,9 +24,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile top bar */}
       <div className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card/80 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <Hexagon className="text-white w-5 h-5" />
-          </div>
+          <img src="/logo.png" alt="The Newwine Place Logo" className="w-9 h-9 rounded-xl shadow-lg shadow-primary/20" />
           <h1 className="font-display font-bold text-lg text-foreground">TNP<span className="text-primary"> Registry</span></h1>
         </div>
         <button
@@ -55,9 +53,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="p-6 lg:p-8 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <Hexagon className="text-white w-6 h-6" />
-          </div>
+          <img src="/logo.png" alt="The Newwine Place Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-primary/20" />
           <div className="flex-1">
             <h1 className="font-display font-bold text-xl text-foreground">TNP<span className="text-primary"> Registry</span></h1>
             <p className="text-xs text-muted-foreground">Admin Portal</p>
