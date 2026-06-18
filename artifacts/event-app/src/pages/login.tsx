@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Hexagon, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useLogin } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/utils";
 
@@ -63,9 +63,7 @@ export default function Login() {
         className="w-full max-w-md z-10 px-4"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center mb-6 shadow-2xl shadow-primary/30">
-            <Hexagon className="text-white w-8 h-8" />
-          </div>
+          <img src="/logo.png" alt="The Newwine Place Logo" className="w-16 h-16 rounded-2xl mb-6 shadow-2xl shadow-primary/30 object-cover" />
           <h1 className="font-display font-bold text-3xl text-foreground">TNP<span className="text-primary"> Registry</span></h1>
           <p className="text-muted-foreground mt-2">Admin Portal Login</p>
         </div>
