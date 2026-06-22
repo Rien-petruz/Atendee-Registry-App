@@ -66,23 +66,28 @@ async function upsertAttendeeWithAttendance(input: {
   month: number;
   year: number;
 }) {
-  const normalizedEmail = input.email.toLowerCase();
   const createdAt = new Date(Date.UTC(input.year, input.month - 1, 1));
+  let attendee: any;
+  let created = false;
 
-  let [attendee] = await db
-    .select()
-    .from(attendeesTable)
-    .where(eq(attendeesTable.email, normalizedEmail))
-    .limit(1);
+  // Only try to find existing attendee if email is provided
+  if (input.email) {
+    const normalizedEmail = input.email.toLowerCase();
+    [attendee] = await db
+      .select()
+      .from(attendeesTable)
+      .where(eq(attendeesTable.email, normalizedEmail))
+      .limit(1);
+  }
 
-  const created = !attendee;
+  created = !attendee;
 
   if (!attendee) {
     [attendee] = await db
       .insert(attendeesTable)
       .values({
         fullName: input.fullName,
-        email: normalizedEmail,
+        email: input.email ? input.email.toLowerCase() : "",
         phoneNumber: input.phoneNumber,
         isNewcomer: input.isNewcomer,
         createdAt,
@@ -174,12 +179,12 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     const month = Number(row?.month);
     const year = Number(row?.year);
 
-    if (!fullName || !email || !phoneNumber) {
+    if (!fullName) {
       skipped++;
-      errors.push({ rowNumber, message: "fullName, email, and phoneNumber are required" });
+      errors.push({ rowNumber, message: "fullName is required" });
       continue;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       skipped++;
       errors.push({ rowNumber, message: "Invalid email format" });
       continue;
