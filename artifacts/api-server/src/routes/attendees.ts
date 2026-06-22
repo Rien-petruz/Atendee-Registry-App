@@ -69,8 +69,9 @@ async function upsertAttendeeWithAttendance(input: {
   const createdAt = new Date(Date.UTC(input.year, input.month - 1, 1));
   let attendee: any;
   let created = false;
+  let updated = false;
 
-  // Only try to find existing attendee if email is provided
+  // Try to find existing attendee by email first
   if (input.email) {
     const normalizedEmail = input.email.toLowerCase();
     [attendee] = await db
@@ -80,9 +81,18 @@ async function upsertAttendeeWithAttendance(input: {
       .limit(1);
   }
 
-  created = !attendee;
+  // If not found by email, try to find by phone number
+  if (!attendee && input.phoneNumber) {
+    [attendee] = await db
+      .select()
+      .from(attendeesTable)
+      .where(eq(attendeesTable.phoneNumber, input.phoneNumber))
+      .limit(1);
+  }
 
+  // If not found, create new attendee
   if (!attendee) {
+    created = true;
     [attendee] = await db
       .insert(attendeesTable)
       .values({
@@ -93,6 +103,30 @@ async function upsertAttendeeWithAttendance(input: {
         createdAt,
       })
       .returning();
+  } else {
+    // Update existing attendee with any new information
+    const updateData: any = { updatedAt: new Date() };
+
+    // Fill in missing email if provided
+    if (input.email && !attendee.email) {
+      updateData.email = input.email.toLowerCase();
+      updated = true;
+    }
+
+    // Fill in missing phone if provided
+    if (input.phoneNumber && !attendee.phoneNumber) {
+      updateData.phoneNumber = input.phoneNumber;
+      updated = true;
+    }
+
+    // Apply updates if any new data was added
+    if (updated) {
+      [attendee] = await db
+        .update(attendeesTable)
+        .set(updateData)
+        .where(eq(attendeesTable.id, attendee.id))
+        .returning();
+    }
   }
 
   const [inserted] = await db
