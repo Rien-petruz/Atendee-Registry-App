@@ -93,12 +93,14 @@ async function upsertAttendeeWithAttendance(input: {
   // If not found, create new attendee
   if (!attendee) {
     created = true;
+    const normalizedEmail = input.email ? input.email.toLowerCase() : "";
+    const normalizedPhone = input.phoneNumber || "";
     [attendee] = await db
       .insert(attendeesTable)
       .values({
         fullName: input.fullName,
-        email: input.email ? input.email.toLowerCase() : null,
-        phoneNumber: input.phoneNumber || null,
+        email: normalizedEmail,
+        phoneNumber: normalizedPhone,
         isNewcomer: input.isNewcomer,
         createdAt,
       })
@@ -262,8 +264,8 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
       if (!attendee) {
         const newAttendee = {
           fullName,
-          email: email ? email.toLowerCase() : null,
-          phoneNumber: phoneNumber || null,
+          email: email ? email.toLowerCase() : "",
+          phoneNumber: phoneNumber || "",
           isNewcomer,
           createdAt,
         };
