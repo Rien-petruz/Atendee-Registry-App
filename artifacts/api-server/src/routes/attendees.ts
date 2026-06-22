@@ -203,6 +203,14 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
   let skipped = 0;
   const errors: { rowNumber: number; message: string }[] = [];
 
+  // Pre-load all existing attendees to avoid repeated queries
+  const existingAttendees = await db.select().from(attendeesTable);
+  const emailMap = new Map(existingAttendees.filter(a => a.email).map(a => [a.email.toLowerCase(), a]));
+  const phoneMap = new Map(existingAttendees.filter(a => a.phoneNumber).map(a => [a.phoneNumber, a]));
+
+  const attendeesToInsert: any[] = [];
+  const attendancesToInsert: any[] = [];
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNumber = i + 1;
@@ -235,14 +243,84 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     }
 
     try {
-      const result = await upsertAttendeeWithAttendance({
-        fullName, email, phoneNumber, isNewcomer, month, year,
-      });
-      if (result.created) createdAttendees++;
-      if (result.attendanceAdded) attendancesAdded++;
+      const createdAt = new Date(Date.UTC(year, month - 1, 1));
+      let attendee = null;
+      let isNew = false;
+
+      // Try to find existing by email
+      if (email) {
+        const normalizedEmail = email.toLowerCase();
+        attendee = emailMap.get(normalizedEmail);
+      }
+
+      // Try to find by phone if not found
+      if (!attendee && phoneNumber) {
+        attendee = phoneMap.get(phoneNumber);
+      }
+
+      // Insert new or update existing
+      if (!attendee) {
+        isNew = true;
+        const newAttendee = {
+          fullName,
+          email: email ? email.toLowerCase() : "",
+          phoneNumber,
+          isNewcomer,
+          createdAt,
+        };
+        attendeesToInsert.push(newAttendee);
+        attendee = newAttendee;
+        attendee.id = -1; // Placeholder, will be assigned after insert
+        createdAttendees++;
+      } else {
+        // Update with missing info
+        let updateNeeded = false;
+        if (email && !attendee.email) {
+          attendee.email = email.toLowerCase();
+          updateNeeded = true;
+        }
+        if (phoneNumber && !attendee.phoneNumber) {
+          attendee.phoneNumber = phoneNumber;
+          updateNeeded = true;
+        }
+        if (updateNeeded && attendee.id > 0) {
+          await db.update(attendeesTable)
+            .set({ email: attendee.email, phoneNumber: attendee.phoneNumber, updatedAt: new Date() })
+            .where(eq(attendeesTable.id, attendee.id));
+        }
+      }
+
+      // Queue attendance record
+      if (attendee && attendee.id > 0) {
+        attendancesToInsert.push({ attendeeId: attendee.id, month, year });
+      }
     } catch (err: any) {
       skipped++;
-      errors.push({ rowNumber, message: err?.message || "Failed to insert row" });
+      errors.push({ rowNumber, message: err?.message || "Failed to process row" });
+    }
+  }
+
+  // Bulk insert new attendees
+  if (attendeesToInsert.length > 0) {
+    const inserted = await db.insert(attendeesTable).values(attendeesToInsert).returning();
+
+    // Update attendance records with actual IDs
+    let insertIdx = 0;
+    for (let i = 0; i < attendancesToInsert.length; i++) {
+      if (attendancesToInsert[i].attendeeId === -1) {
+        attendancesToInsert[i].attendeeId = inserted[insertIdx].id;
+        insertIdx++;
+      }
+    }
+  }
+
+  // Bulk insert attendance records
+  if (attendancesToInsert.length > 0) {
+    try {
+      const inserted = await db.insert(attendancesTable).values(attendancesToInsert).onConflictDoNothing().returning();
+      attendancesAdded = inserted.length;
+    } catch (err: any) {
+      logger.error({ err }, "Failed to insert attendance records");
     }
   }
 
