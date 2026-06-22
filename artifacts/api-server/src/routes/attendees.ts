@@ -338,15 +338,23 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     }
   }
 
+  logger.info({ count: attendeesToInsert.length }, "Step 1: About to check existing attendees");
+
   // Before inserting, check which attendees already exist
   const emailsToCheck = attendeesToInsert.map(a => a.email.toLowerCase());
   let existingByEmail = new Map<string, any>();
   if (emailsToCheck.length > 0) {
-    const existing = await db
-      .select()
-      .from(attendeesTable)
-      .where(inArray(attendeesTable.email, emailsToCheck));
-    existingByEmail = new Map(existing.map(a => [a.email!.toLowerCase(), a]));
+    try {
+      const existing = await db
+        .select()
+        .from(attendeesTable)
+        .where(inArray(attendeesTable.email, emailsToCheck));
+      logger.info({ count: existing.length }, "Found existing attendees");
+      existingByEmail = new Map(existing.map(a => [a.email!.toLowerCase(), a]));
+    } catch (err: any) {
+      logger.error({ err }, "Failed to query existing attendees");
+      throw err;
+    }
   }
 
   // Separate new vs existing attendees
@@ -358,23 +366,26 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     const existing = existingByEmail.get(attendee.email.toLowerCase());
 
     if (existing) {
-      // Use existing attendee ID
       attendeeIndexToExistingId.set(i, existing.id);
     } else {
-      // Mark for insertion
       attendeesToInsertFiltered.push({ index: i, data: attendee });
     }
   }
 
+  logger.info({ newCount: attendeesToInsertFiltered.length, existingCount: attendeeIndexToExistingId.size }, "Step 2: Separated new vs existing");
+
   // Insert only new attendees
   if (attendeesToInsertFiltered.length > 0) {
     try {
+      logger.info({ count: attendeesToInsertFiltered.length }, "Inserting new attendees");
       const inserted = await db
         .insert(attendeesTable)
         .values(attendeesToInsertFiltered.map(a => a.data))
         .returning();
 
-      // Create map of email -> attendee for matching (order might not be preserved)
+      logger.info({ count: inserted.length }, "Successfully inserted attendees");
+
+      // Create map of email -> attendee for matching
       const insertedByEmail = new Map(inserted.map(a => [a.email!.toLowerCase(), a]));
 
       // Map returned attendees to their attendance records by email
@@ -389,8 +400,9 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
           }
         }
       });
+      logger.info({ count: attendancesToInsert.length }, "Queued attendance records from new attendees");
     } catch (err: any) {
-      logger.error({ err }, "Failed to insert new attendees");
+      logger.error({ err, count: attendeesToInsertFiltered.length }, "Failed to insert new attendees");
     }
   }
 
@@ -404,14 +416,19 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     }
   });
 
+  logger.info({ count: attendancesToInsert.length }, "Step 3: About to insert attendance records");
+
   // Bulk insert attendance records
   if (attendancesToInsert.length > 0) {
     try {
       const inserted = await db.insert(attendancesTable).values(attendancesToInsert).onConflictDoNothing().returning();
       attendancesAdded = inserted.length;
+      logger.info({ count: inserted.length }, "Successfully inserted attendance records");
     } catch (err: any) {
-      logger.error({ err }, "Failed to insert attendance records");
+      logger.error({ err, count: attendancesToInsert.length }, "Failed to insert attendance records");
     }
+  } else {
+    logger.warn("No attendance records to insert");
   }
 
   res.json({
