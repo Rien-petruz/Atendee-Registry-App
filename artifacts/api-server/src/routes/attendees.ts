@@ -93,12 +93,14 @@ async function upsertAttendeeWithAttendance(input: {
   // If not found, create new attendee
   if (!attendee) {
     created = true;
+    const finalEmail = input.email ? input.email.toLowerCase() : `placeholder_${input.fullName.toLowerCase().replace(/\s+/g, '_')}@placeholder.local`;
+    const finalPhone = input.phoneNumber ? input.phoneNumber : `9000000000`;
     [attendee] = await db
       .insert(attendeesTable)
       .values({
         fullName: input.fullName,
-        email: input.email ? input.email.toLowerCase() : sql`NULL`,
-        phoneNumber: input.phoneNumber ? input.phoneNumber : sql`NULL`,
+        email: finalEmail,
+        phoneNumber: finalPhone,
         isNewcomer: input.isNewcomer,
         createdAt,
       })
@@ -211,6 +213,7 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
   const attendeesToInsert: any[] = [];
   const attendancesToInsert: any[] = [];
   let newAttendeeIndexMap: Map<number, { month: number; year: number }[]> = new Map();
+  let placeholderCounter = 9000000000;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -260,10 +263,14 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
       // Insert new or update existing
       if (!attendee) {
+        // Generate placeholder data for missing email/phone
+        const finalEmail = email ? email.toLowerCase() : `placeholder_${fullName.toLowerCase().replace(/\s+/g, '_')}_${attendeesToInsert.length}@placeholder.local`;
+        const finalPhone = phoneNumber ? phoneNumber : `${placeholderCounter++}`;
+
         const newAttendee = {
           fullName,
-          email: email ? email.toLowerCase() : sql`NULL`,
-          phoneNumber: phoneNumber ? phoneNumber : sql`NULL`,
+          email: finalEmail,
+          phoneNumber: finalPhone,
           isNewcomer,
           createdAt,
         };
