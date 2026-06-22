@@ -93,14 +93,12 @@ async function upsertAttendeeWithAttendance(input: {
   // If not found, create new attendee
   if (!attendee) {
     created = true;
-    const normalizedEmail = input.email ? input.email.toLowerCase() : "";
-    const normalizedPhone = input.phoneNumber || "";
     [attendee] = await db
       .insert(attendeesTable)
       .values({
         fullName: input.fullName,
-        email: normalizedEmail,
-        phoneNumber: normalizedPhone,
+        email: input.email ? input.email.toLowerCase() : sql`NULL`,
+        phoneNumber: input.phoneNumber ? input.phoneNumber : sql`NULL`,
         isNewcomer: input.isNewcomer,
         createdAt,
       })
@@ -244,11 +242,6 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
       errors.push({ rowNumber, message: "year must be an integer between 2000 and 2100" });
       continue;
     }
-    if (!email && !phoneNumber) {
-      skipped++;
-      errors.push({ rowNumber, message: "At least email or phone number is required" });
-      continue;
-    }
 
     try {
       const createdAt = new Date(Date.UTC(year, month - 1, 1));
@@ -269,8 +262,8 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
       if (!attendee) {
         const newAttendee = {
           fullName,
-          email: email ? email.toLowerCase() : "",
-          phoneNumber: phoneNumber || "",
+          email: email ? email.toLowerCase() : sql`NULL`,
+          phoneNumber: phoneNumber ? phoneNumber : sql`NULL`,
           isNewcomer,
           createdAt,
         };
