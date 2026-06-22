@@ -210,6 +210,7 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
   const attendeesToInsert: any[] = [];
   const attendancesToInsert: any[] = [];
+  let newAttendeeIndexMap: Map<number, { month: number; year: number }[]> = new Map();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -245,7 +246,6 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     try {
       const createdAt = new Date(Date.UTC(year, month - 1, 1));
       let attendee = null;
-      let isNew = false;
 
       // Try to find existing by email
       if (email) {
@@ -260,7 +260,6 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
       // Insert new or update existing
       if (!attendee) {
-        isNew = true;
         const newAttendee = {
           fullName,
           email: email ? email.toLowerCase() : "",
@@ -268,9 +267,14 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
           isNewcomer,
           createdAt,
         };
+        const insertIndex = attendeesToInsert.length;
         attendeesToInsert.push(newAttendee);
-        attendee = newAttendee;
-        attendee.id = -1; // Placeholder, will be assigned after insert
+
+        // Track attendance for this new attendee
+        if (!newAttendeeIndexMap.has(insertIndex)) {
+          newAttendeeIndexMap.set(insertIndex, []);
+        }
+        newAttendeeIndexMap.get(insertIndex)!.push({ month, year });
         createdAttendees++;
       } else {
         // Update with missing info
@@ -288,10 +292,7 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
             .set({ email: attendee.email, phoneNumber: attendee.phoneNumber, updatedAt: new Date() })
             .where(eq(attendeesTable.id, attendee.id));
         }
-      }
-
-      // Queue attendance record
-      if (attendee && attendee.id > 0) {
+        // Queue attendance record for existing attendee
         attendancesToInsert.push({ attendeeId: attendee.id, month, year });
       }
     } catch (err: any) {
@@ -304,14 +305,15 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
   if (attendeesToInsert.length > 0) {
     const inserted = await db.insert(attendeesTable).values(attendeesToInsert).returning();
 
-    // Update attendance records with actual IDs
-    let insertIdx = 0;
-    for (let i = 0; i < attendancesToInsert.length; i++) {
-      if (attendancesToInsert[i].attendeeId === -1) {
-        attendancesToInsert[i].attendeeId = inserted[insertIdx].id;
-        insertIdx++;
+    // Map new attendee IDs to their attendance records
+    inserted.forEach((attendee, idx) => {
+      const attendanceList = newAttendeeIndexMap.get(idx);
+      if (attendanceList) {
+        attendanceList.forEach(({ month, year }) => {
+          attendancesToInsert.push({ attendeeId: attendee.id, month, year });
+        });
       }
-    }
+    });
   }
 
   // Bulk insert attendance records
