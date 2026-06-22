@@ -185,7 +185,7 @@ router.post("/admin", requireAuth, async (req: any, res: any) => {
   }
 });
 
-router.post("/import", requireAuth, async (req: any, res: any) => {
+router.post("/import", async (req: any, res: any) => {
   const { rows } = req.body ?? {};
   if (!Array.isArray(rows)) {
     res.status(422).json({ error: "Validation Error", message: "rows must be an array" });
