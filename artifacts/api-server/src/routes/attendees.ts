@@ -334,8 +334,9 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
         }
       }
     } catch (err: any) {
-      logger.error({ err, count: attendeesToInsertFiltered.length }, "Failed to insert new attendees");
-      return res.status(500).json({ error: "Database error", message: err.message });
+      logger.error({ err: err.message, code: err.code, constraint: err.constraint }, "Failed to insert attendees");
+      console.error("Full error:", err);
+      return res.status(500).json({ error: "Database error", message: err.message, details: err.detail || err.code });
     }
   }
 
