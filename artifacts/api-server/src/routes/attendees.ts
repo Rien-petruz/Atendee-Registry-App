@@ -309,34 +309,42 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
   logger.info({ newCount: attendeesToInsertFiltered.length, existingCount: attendeeIndexToExistingId.size }, "Step 2: Separated new vs existing");
 
-  // Insert only new attendees
+  // Insert attendees one by one to handle duplicates gracefully
   if (attendeesToInsertFiltered.length > 0) {
-    try {
-      logger.info({ count: attendeesToInsertFiltered.length }, "Inserting new attendees");
-      const inserted = await db
-        .insert(attendeesTable)
-        .values(attendeesToInsertFiltered.map(a => a.data))
-        .returning();
+    const insertedByEmail = new Map<string, number>();
 
-      logger.info({ count: inserted.length }, "Successfully inserted attendees");
+    for (const { index, data } of attendeesToInsertFiltered) {
+      try {
+        const [inserted] = await db
+          .insert(attendeesTable)
+          .values(data)
+          .returning();
 
-      // Create map of email -> attendee ID for matching
-      const insertedByEmail = new Map(inserted.map(a => [a.email!.toLowerCase(), a.id]));
+        if (inserted) {
+          insertedByEmail.set(inserted.email.toLowerCase(), inserted.id);
+        }
+      } catch (err: any) {
+        // Likely duplicate - try to find existing
+        const existing = await db
+          .select()
+          .from(attendeesTable)
+          .where(eq(attendeesTable.email, data.email));
 
-      // Update attendance records with new attendee IDs
-      for (let i = 0; i < attendancesToInsert.length; i++) {
-        const record = attendancesToInsert[i];
-        if (!record.attendeeId && record.email) {
-          const attendeeId = insertedByEmail.get((record.email as string).toLowerCase());
-          if (attendeeId) {
-            attendancesToInsert[i] = { attendeeId, month: record.month, year: record.year };
-          }
+        if (existing.length > 0) {
+          insertedByEmail.set(existing[0].email!.toLowerCase(), existing[0].id);
         }
       }
-    } catch (err: any) {
-      logger.error({ err: err.message, code: err.code, constraint: err.constraint }, "Failed to insert attendees");
-      console.error("Full error:", err);
-      return res.status(500).json({ error: "Database error", message: err.message, details: err.detail || err.code });
+    }
+
+    // Update attendance records with attendee IDs
+    for (let i = 0; i < attendancesToInsert.length; i++) {
+      const record = attendancesToInsert[i];
+      if (!record.attendeeId && record.email) {
+        const attendeeId = insertedByEmail.get((record.email as string).toLowerCase());
+        if (attendeeId) {
+          attendancesToInsert[i] = { attendeeId, month: record.month, year: record.year };
+        }
+      }
     }
   }
 
