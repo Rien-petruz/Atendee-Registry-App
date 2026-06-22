@@ -186,6 +186,7 @@ router.post("/admin", requireAuth, async (req: any, res: any) => {
 });
 
 router.post("/import", requireAuth, async (req: any, res: any) => {
+  logger.info("🚀 Import endpoint called");
   const { rows } = req.body ?? {};
   if (!Array.isArray(rows)) {
     res.status(422).json({ error: "Validation Error", message: "rows must be an array" });
@@ -200,6 +201,8 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     return;
   }
 
+  logger.info({ rowCount: rows.length }, "📦 Received rows");
+
   let createdAttendees = 0;
   let attendancesAdded = 0;
   let skipped = 0;
@@ -209,6 +212,8 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
   const existingAttendees = await db.select().from(attendeesTable);
   const emailMap = new Map(existingAttendees.filter(a => a.email).map(a => [a.email.toLowerCase(), a]));
   const phoneMap = new Map(existingAttendees.filter(a => a.phoneNumber).map(a => [a.phoneNumber, a]));
+
+  logger.info({ existingCount: existingAttendees.length }, "📋 Pre-loaded existing attendees");
 
   const attendeesToInsert: any[] = [];
   const attendancesToInsert: any[] = [];
@@ -337,6 +342,8 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
       errors.push({ rowNumber, message: err?.message || "Failed to process row" });
     }
   }
+
+  logger.info({ attendeesToInsert: attendeesToInsert.length, attendancesToInsert: attendancesToInsert.length, newAttendeeIndexMapSize: newAttendeeIndexMap.size }, "📥 After CSV processing loop");
 
   logger.info({ count: attendeesToInsert.length }, "Step 1: About to check existing attendees");
 
