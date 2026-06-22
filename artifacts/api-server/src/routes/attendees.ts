@@ -247,7 +247,7 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
     try {
       const createdAt = new Date(Date.UTC(year, month - 1, 1));
-      const finalEmail = email || `placeholder_${fullName.toLowerCase().replace(/\s+/g, '_')}_${i}@placeholder.local`;
+      const finalEmail = email || `placeholder_${fullName.toLowerCase().replace(/\s+/g, '_')}@placeholder.local`;
       const finalPhone = phoneNumber || `${placeholderCounter++}`;
 
       // Track unique attendees by email
