@@ -97,8 +97,8 @@ async function upsertAttendeeWithAttendance(input: {
       .insert(attendeesTable)
       .values({
         fullName: input.fullName,
-        email: input.email ? input.email.toLowerCase() : "",
-        phoneNumber: input.phoneNumber,
+        email: input.email ? input.email.toLowerCase() : null,
+        phoneNumber: input.phoneNumber || null,
         isNewcomer: input.isNewcomer,
         createdAt,
       })
@@ -262,8 +262,8 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
       if (!attendee) {
         const newAttendee = {
           fullName,
-          email: email ? email.toLowerCase() : "",
-          phoneNumber,
+          email: email ? email.toLowerCase() : null,
+          phoneNumber: phoneNumber || null,
           isNewcomer,
           createdAt,
         };
