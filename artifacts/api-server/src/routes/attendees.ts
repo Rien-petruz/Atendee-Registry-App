@@ -213,6 +213,8 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
   const attendeesToInsert: any[] = [];
   const attendancesToInsert: any[] = [];
   let newAttendeeIndexMap: Map<number, { month: number; year: number }[]> = new Map();
+  const batchEmailMap = new Map<string, number>(); // Track emails within this batch
+  const batchPhoneMap = new Map<string, number>(); // Track phones within this batch
   let placeholderCounter = 9000000000;
 
   for (let i = 0; i < rows.length; i++) {
@@ -249,20 +251,32 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     try {
       const createdAt = new Date(Date.UTC(year, month - 1, 1));
       let attendee = null;
+      let isNewInBatch = false;
+      let newAttendeeIndexForBatch = -1;
 
-      // Try to find existing by email
+      // Try to find in existing database by email
       if (email) {
         const normalizedEmail = email.toLowerCase();
         attendee = emailMap.get(normalizedEmail);
+
+        // If not in database, check if already in this batch
+        if (!attendee && batchEmailMap.has(normalizedEmail)) {
+          newAttendeeIndexForBatch = batchEmailMap.get(normalizedEmail)!;
+        }
       }
 
       // Try to find by phone if not found
-      if (!attendee && phoneNumber) {
+      if (!attendee && newAttendeeIndexForBatch === -1 && phoneNumber) {
         attendee = phoneMap.get(phoneNumber);
+
+        // If not in database, check if already in this batch
+        if (!attendee && batchPhoneMap.has(phoneNumber)) {
+          newAttendeeIndexForBatch = batchPhoneMap.get(phoneNumber)!;
+        }
       }
 
       // Insert new or update existing
-      if (!attendee) {
+      if (!attendee && newAttendeeIndexForBatch === -1) {
         // Generate placeholder data for missing email/phone
         const finalEmail = email ? email.toLowerCase() : `placeholder_${fullName.toLowerCase().replace(/\s+/g, '_')}_${attendeesToInsert.length}@placeholder.local`;
         const finalPhone = phoneNumber ? phoneNumber : `${placeholderCounter++}`;
@@ -277,12 +291,23 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
         const insertIndex = attendeesToInsert.length;
         attendeesToInsert.push(newAttendee);
 
+        // Track in batch maps to prevent duplicates
+        batchEmailMap.set(finalEmail.toLowerCase(), insertIndex);
+        batchPhoneMap.set(finalPhone, insertIndex);
+
         // Track attendance for this new attendee
         if (!newAttendeeIndexMap.has(insertIndex)) {
           newAttendeeIndexMap.set(insertIndex, []);
         }
         newAttendeeIndexMap.get(insertIndex)!.push({ month, year });
         createdAttendees++;
+      } else if (newAttendeeIndexForBatch >= 0) {
+        // This is a duplicate within the batch - add attendance to existing new attendee
+        if (!newAttendeeIndexMap.has(newAttendeeIndexForBatch)) {
+          newAttendeeIndexMap.set(newAttendeeIndexForBatch, []);
+        }
+        newAttendeeIndexMap.get(newAttendeeIndexForBatch)!.push({ month, year });
+        attendancesAdded++;
       } else {
         // Update with missing info
         let updateNeeded = false;
