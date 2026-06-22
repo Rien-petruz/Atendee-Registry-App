@@ -340,30 +340,32 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
   // Bulk insert new attendees
   if (attendeesToInsert.length > 0) {
-    const inserted = await db.insert(attendeesTable).values(attendeesToInsert).onConflictDoNothing().returning();
+    try {
+      const inserted = await db.insert(attendeesTable).values(attendeesToInsert).returning();
 
-    // Map new attendee IDs to their attendance records
-    inserted.forEach((attendee, idx) => {
-      const attendanceList = newAttendeeIndexMap.get(idx);
-      if (attendanceList) {
-        attendanceList.forEach(({ month, year }) => {
-          attendancesToInsert.push({ attendeeId: attendee.id, month, year });
-        });
-      }
-    });
+      // Map new attendee IDs to their attendance records
+      inserted.forEach((attendee, idx) => {
+        const attendanceList = newAttendeeIndexMap.get(idx);
+        if (attendanceList) {
+          attendanceList.forEach(({ month, year }) => {
+            attendancesToInsert.push({ attendeeId: attendee.id, month, year });
+          });
+        }
+      });
+    } catch (err: any) {
+      // Handle conflict errors - query for attendees by email and create attendance anyway
+      logger.warn({ err }, "Insert had conflicts, querying for existing attendees");
 
-    // For any attendees that were skipped due to conflicts, query by email and create attendance
-    if (inserted.length < attendeesToInsert.length) {
       const allEmails = attendeesToInsert.map(a => a.email.toLowerCase());
-      const conflictedAttendees = await db
+      const existingAttendees = await db
         .select()
         .from(attendeesTable)
         .where(inArray(attendeesTable.email, allEmails));
 
       // Create a map of email to ID for quick lookup
-      const emailToIdMap = new Map(conflictedAttendees.map(a => [a.email!.toLowerCase(), a.id]));
+      const emailToIdMap = new Map(existingAttendees.map(a => [a.email!.toLowerCase(), a.id]));
 
-      // Create attendance records for conflicted attendees
+      // Create attendance records for all attendees (both new and existing)
       for (let i = 0; i < attendeesToInsert.length; i++) {
         const attendee = attendeesToInsert[i];
         const attendanceList = newAttendeeIndexMap.get(i);
