@@ -374,14 +374,19 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
         .values(attendeesToInsertFiltered.map(a => a.data))
         .returning();
 
-      // Map returned attendees to their insertion index
-      inserted.forEach((newAttendee, returnIdx) => {
-        const originalIdx = attendeesToInsertFiltered[returnIdx].index;
-        const attendanceList = newAttendeeIndexMap.get(originalIdx);
-        if (attendanceList) {
-          attendanceList.forEach(({ month, year }) => {
-            attendancesToInsert.push({ attendeeId: newAttendee.id, month, year });
-          });
+      // Create map of email -> attendee for matching (order might not be preserved)
+      const insertedByEmail = new Map(inserted.map(a => [a.email!.toLowerCase(), a]));
+
+      // Map returned attendees to their attendance records by email
+      attendeesToInsertFiltered.forEach(({ index, data }) => {
+        const newAttendee = insertedByEmail.get(data.email.toLowerCase());
+        if (newAttendee) {
+          const attendanceList = newAttendeeIndexMap.get(index);
+          if (attendanceList) {
+            attendanceList.forEach(({ month, year }) => {
+              attendancesToInsert.push({ attendeeId: newAttendee.id, month, year });
+            });
+          }
         }
       });
     } catch (err: any) {
