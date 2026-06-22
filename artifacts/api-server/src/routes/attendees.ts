@@ -417,11 +417,12 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
   });
 
   logger.info({ count: attendancesToInsert.length }, "Step 3: About to insert attendance records");
+  logger.info({ attendancesToInsert }, "Attendance records to insert:");
 
   // Bulk insert attendance records
   if (attendancesToInsert.length > 0) {
     try {
-      const inserted = await db.insert(attendancesTable).values(attendancesToInsert).onConflictDoNothing().returning();
+      const inserted = await db.insert(attendancesTable).values(attendancesToInsert).returning();
       attendancesAdded = inserted.length;
       logger.info({ count: inserted.length }, "Successfully inserted attendance records");
     } catch (err: any) {
