@@ -186,7 +186,6 @@ router.post("/admin", requireAuth, async (req: any, res: any) => {
 });
 
 router.post("/import", requireAuth, async (req: any, res: any) => {
-  logger.info("🚀 Import endpoint called");
   const { rows } = req.body ?? {};
   if (!Array.isArray(rows)) {
     res.status(422).json({ error: "Validation Error", message: "rows must be an array" });
@@ -201,37 +200,30 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     return;
   }
 
-  logger.info({ rowCount: rows.length }, "📦 Received rows");
+  logger.info({ rowCount: rows.length }, "Import started with rows");
 
   let createdAttendees = 0;
   let attendancesAdded = 0;
   let skipped = 0;
   const errors: { rowNumber: number; message: string }[] = [];
 
-  // Pre-load all existing attendees to avoid repeated queries
-  const existingAttendees = await db.select().from(attendeesTable);
-  const emailMap = new Map(existingAttendees.filter(a => a.email).map(a => [a.email.toLowerCase(), a]));
-  const phoneMap = new Map(existingAttendees.filter(a => a.phoneNumber).map(a => [a.phoneNumber, a]));
-
-  logger.info({ existingCount: existingAttendees.length }, "📋 Pre-loaded existing attendees");
-
   const attendeesToInsert: any[] = [];
   const attendancesToInsert: any[] = [];
-  let newAttendeeIndexMap: Map<number, { month: number; year: number }[]> = new Map();
-  const batchEmailMap = new Map<string, number>(); // Track emails within this batch
-  const batchPhoneMap = new Map<string, number>(); // Track phones within this batch
+  const uniqueEmails = new Map<string, any>();
   let placeholderCounter = 9000000000;
 
+  // Process rows and build attendee list
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNumber = i + 1;
     const fullName = typeof row?.fullName === "string" ? row.fullName.trim() : "";
-    const email = typeof row?.email === "string" ? row.email.trim() : "";
+    const email = typeof row?.email === "string" ? row.email.trim().toLowerCase() : "";
     const phoneNumber = typeof row?.phoneNumber === "string" ? row.phoneNumber.trim() : "";
     const isNewcomer = row?.isNewcomer === true || row?.isNewcomer === "true";
     const month = Number(row?.month);
     const year = Number(row?.year);
 
+    // Validate row
     if (!fullName) {
       skipped++;
       errors.push({ rowNumber, message: "fullName is required" });
@@ -255,97 +247,33 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
     try {
       const createdAt = new Date(Date.UTC(year, month - 1, 1));
-      let attendee = null;
-      let isNewInBatch = false;
-      let newAttendeeIndexForBatch = -1;
+      const finalEmail = email || `placeholder_${fullName.toLowerCase().replace(/\s+/g, '_')}_${i}@placeholder.local`;
+      const finalPhone = phoneNumber || `${placeholderCounter++}`;
 
-      // Try to find in existing database by email
-      if (email) {
-        const normalizedEmail = email.toLowerCase();
-        attendee = emailMap.get(normalizedEmail);
-
-        // If not in database, check if already in this batch
-        if (!attendee && batchEmailMap.has(normalizedEmail)) {
-          newAttendeeIndexForBatch = batchEmailMap.get(normalizedEmail)!;
-        }
-      }
-
-      // Try to find by phone if not found
-      if (!attendee && newAttendeeIndexForBatch === -1 && phoneNumber) {
-        attendee = phoneMap.get(phoneNumber);
-
-        // If not in database, check if already in this batch
-        if (!attendee && batchPhoneMap.has(phoneNumber)) {
-          newAttendeeIndexForBatch = batchPhoneMap.get(phoneNumber)!;
-        }
-      }
-
-      // Insert new or update existing
-      if (!attendee && newAttendeeIndexForBatch === -1) {
-        // Generate placeholder data for missing email/phone
-        const finalEmail = email ? email.toLowerCase() : `placeholder_${fullName.toLowerCase().replace(/\s+/g, '_')}_${attendeesToInsert.length}@placeholder.local`;
-        const finalPhone = phoneNumber ? phoneNumber : `${placeholderCounter++}`;
-
-        const newAttendee = {
+      // Track unique attendees by email
+      if (!uniqueEmails.has(finalEmail)) {
+        uniqueEmails.set(finalEmail, {
           fullName,
           email: finalEmail,
           phoneNumber: finalPhone,
           isNewcomer,
           createdAt,
-        };
-        const insertIndex = attendeesToInsert.length;
-        attendeesToInsert.push(newAttendee);
-
-        // Track in batch maps to prevent duplicates
-        batchEmailMap.set(finalEmail.toLowerCase(), insertIndex);
-        batchPhoneMap.set(finalPhone, insertIndex);
-
-        // Track attendance for this new attendee
-        if (!newAttendeeIndexMap.has(insertIndex)) {
-          newAttendeeIndexMap.set(insertIndex, []);
-        }
-        newAttendeeIndexMap.get(insertIndex)!.push({ month, year });
+        });
         createdAttendees++;
-      } else if (newAttendeeIndexForBatch >= 0) {
-        // This is a duplicate within the batch - add attendance to existing new attendee
-        if (!newAttendeeIndexMap.has(newAttendeeIndexForBatch)) {
-          newAttendeeIndexMap.set(newAttendeeIndexForBatch, []);
-        }
-        newAttendeeIndexMap.get(newAttendeeIndexForBatch)!.push({ month, year });
-        attendancesAdded++;
-      } else if (attendee) {
-        // Update with missing info
-        let updateNeeded = false;
-        if (email && !attendee.email) {
-          attendee.email = email.toLowerCase();
-          updateNeeded = true;
-        }
-        if (phoneNumber && !attendee.phoneNumber) {
-          attendee.phoneNumber = phoneNumber;
-          updateNeeded = true;
-        }
-        if (updateNeeded && attendee.id > 0) {
-          const updateData: any = {};
-          if (email && !attendee.email) updateData.email = attendee.email;
-          if (phoneNumber && !attendee.phoneNumber) updateData.phoneNumber = attendee.phoneNumber;
-          if (Object.keys(updateData).length > 0) {
-            await db.update(attendeesTable)
-              .set(updateData)
-              .where(eq(attendeesTable.id, attendee.id));
-          }
-        }
-        // Queue attendance record for existing attendee
-        attendancesToInsert.push({ attendeeId: attendee.id, month, year });
       }
+
+      // Queue attendance record for this row
+      attendancesToInsert.push({ email: finalEmail, month, year });
     } catch (err: any) {
       skipped++;
       errors.push({ rowNumber, message: err?.message || "Failed to process row" });
     }
   }
 
-  logger.info({ attendeesToInsert: attendeesToInsert.length, attendancesToInsert: attendancesToInsert.length, newAttendeeIndexMapSize: newAttendeeIndexMap.size }, "📥 After CSV processing loop");
+  logger.info({ uniqueAttendees: uniqueEmails.size, attendanceRecords: attendancesToInsert.length }, "After row processing");
 
-  logger.info({ count: attendeesToInsert.length }, "Step 1: About to check existing attendees");
+  // Populate attendeesToInsert from uniqueEmails
+  attendeesToInsert.push(...Array.from(uniqueEmails.values()));
 
   // Before inserting, check which attendees already exist
   const emailsToCheck = attendeesToInsert.map(a => a.email.toLowerCase());
@@ -392,57 +320,52 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
       logger.info({ count: inserted.length }, "Successfully inserted attendees");
 
-      // Create map of email -> attendee for matching
-      const insertedByEmail = new Map(inserted.map(a => [a.email!.toLowerCase(), a]));
+      // Create map of email -> attendee ID for matching
+      const insertedByEmail = new Map(inserted.map(a => [a.email!.toLowerCase(), a.id]));
 
-      // Map returned attendees to their attendance records by email
-      attendeesToInsertFiltered.forEach(({ index, data }) => {
-        const newAttendee = insertedByEmail.get(data.email.toLowerCase());
-        if (newAttendee) {
-          const attendanceList = newAttendeeIndexMap.get(index);
-          if (attendanceList) {
-            attendanceList.forEach(({ month, year }) => {
-              attendancesToInsert.push({ attendeeId: newAttendee.id, month, year });
-            });
+      // Update attendance records with new attendee IDs
+      for (let i = 0; i < attendancesToInsert.length; i++) {
+        const record = attendancesToInsert[i];
+        if (!record.attendeeId && record.email) {
+          const attendeeId = insertedByEmail.get((record.email as string).toLowerCase());
+          if (attendeeId) {
+            attendancesToInsert[i] = { attendeeId, month: record.month, year: record.year };
           }
         }
-      });
-      logger.info({ count: attendancesToInsert.length }, "Queued attendance records from new attendees");
+      }
     } catch (err: any) {
       logger.error({ err, count: attendeesToInsertFiltered.length }, "Failed to insert new attendees");
+      return res.status(500).json({ error: "Database error", message: err.message });
     }
   }
 
-  // Add attendance records for existing attendees
-  attendeeIndexToExistingId.forEach((attendeeId, originalIdx) => {
-    const attendanceList = newAttendeeIndexMap.get(originalIdx);
-    if (attendanceList) {
-      attendanceList.forEach(({ month, year }) => {
-        attendancesToInsert.push({ attendeeId, month, year });
-      });
+  // Add attendee IDs for existing attendees' attendance records
+  existingByEmail.forEach((attendee) => {
+    for (let i = 0; i < attendancesToInsert.length; i++) {
+      const record = attendancesToInsert[i];
+      if (!record.attendeeId && record.email && attendee.email && (record.email as string).toLowerCase() === attendee.email.toLowerCase()) {
+        attendancesToInsert[i] = { attendeeId: attendee.id, month: record.month, year: record.year };
+      }
     }
   });
 
-  logger.info({ count: attendancesToInsert.length }, "Step 3: About to insert attendance records");
+  // Filter out any records without attendee IDs
+  const validAttendances = attendancesToInsert.filter((r): r is typeof attendancesToInsert[0] & { attendeeId: number } => r.attendeeId !== undefined);
 
-  // Debug: log newAttendeeIndexMap contents
-  let totalAttendancesInMap = 0;
-  newAttendeeIndexMap.forEach((attendances) => {
-    totalAttendancesInMap += attendances.length;
-  });
-  logger.info({ newAttendeeIndexMapSize: newAttendeeIndexMap.size, totalAttendancesInMap }, "newAttendeeIndexMap content");
+  logger.info({ count: validAttendances.length }, "About to insert attendance records");
 
   // Bulk insert attendance records
-  if (attendancesToInsert.length > 0) {
+  if (validAttendances.length > 0) {
     try {
-      const inserted = await db.insert(attendancesTable).values(attendancesToInsert).returning();
+      const inserted = await db.insert(attendancesTable).values(validAttendances).returning();
       attendancesAdded = inserted.length;
       logger.info({ count: inserted.length }, "Successfully inserted attendance records");
     } catch (err: any) {
-      logger.error({ err, count: attendancesToInsert.length }, "Failed to insert attendance records");
+      logger.error({ err, count: validAttendances.length }, "Failed to insert attendance records");
+      return res.status(500).json({ error: "Database error", message: err.message });
     }
   } else {
-    logger.warn("No attendance records to insert");
+    logger.warn("No valid attendance records to insert");
   }
 
   res.json({
