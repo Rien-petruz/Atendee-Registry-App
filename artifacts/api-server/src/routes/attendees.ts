@@ -288,9 +288,14 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
           updateNeeded = true;
         }
         if (updateNeeded && attendee.id > 0) {
-          await db.update(attendeesTable)
-            .set({ email: attendee.email, phoneNumber: attendee.phoneNumber, updatedAt: new Date() })
-            .where(eq(attendeesTable.id, attendee.id));
+          const updateData: any = {};
+          if (email && !attendee.email) updateData.email = attendee.email;
+          if (phoneNumber && !attendee.phoneNumber) updateData.phoneNumber = attendee.phoneNumber;
+          if (Object.keys(updateData).length > 0) {
+            await db.update(attendeesTable)
+              .set(updateData)
+              .where(eq(attendeesTable.id, attendee.id));
+          }
         }
         // Queue attendance record for existing attendee
         attendancesToInsert.push({ attendeeId: attendee.id, month, year });
