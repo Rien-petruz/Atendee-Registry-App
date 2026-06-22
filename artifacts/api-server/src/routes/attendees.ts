@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, attendeesTable, attendancesTable, eq, ilike, or, and, desc, asc, count, sql } from "@workspace/db";
+import { db, attendeesTable, attendancesTable, eq, ilike, or, and, desc, asc, count, sql, inArray } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
 
@@ -340,7 +340,7 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
 
   // Bulk insert new attendees
   if (attendeesToInsert.length > 0) {
-    const inserted = await db.insert(attendeesTable).values(attendeesToInsert).returning();
+    const inserted = await db.insert(attendeesTable).values(attendeesToInsert).onConflictDoNothing().returning();
 
     // Map new attendee IDs to their attendance records
     inserted.forEach((attendee, idx) => {
@@ -351,6 +351,32 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
         });
       }
     });
+
+    // For any attendees that were skipped due to conflicts, query by email and create attendance
+    if (inserted.length < attendeesToInsert.length) {
+      const allEmails = attendeesToInsert.map(a => a.email.toLowerCase());
+      const conflictedAttendees = await db
+        .select()
+        .from(attendeesTable)
+        .where(inArray(attendeesTable.email, allEmails));
+
+      // Create a map of email to ID for quick lookup
+      const emailToIdMap = new Map(conflictedAttendees.map(a => [a.email!.toLowerCase(), a.id]));
+
+      // Create attendance records for conflicted attendees
+      for (let i = 0; i < attendeesToInsert.length; i++) {
+        const attendee = attendeesToInsert[i];
+        const attendanceList = newAttendeeIndexMap.get(i);
+        if (attendanceList) {
+          const attendeeId = emailToIdMap.get(attendee.email.toLowerCase());
+          if (attendeeId && attendeeId > 0) {
+            attendanceList.forEach(({ month, year }) => {
+              attendancesToInsert.push({ attendeeId, month, year });
+            });
+          }
+        }
+      }
+    }
   }
 
   // Bulk insert attendance records
