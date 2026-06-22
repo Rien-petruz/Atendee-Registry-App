@@ -22,8 +22,18 @@ function parseCSV(content) {
 }
 
 const API_URL = 'https://attendee-registry-app.vercel.app/api';
-const ADMIN_EMAIL = 'newwinebelieversnetwork@gmail.com';
-const ADMIN_PASSWORD = 'PassW0rd';
+
+// Load from environment - never hardcode credentials
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const AUTH_TOKEN = process.env.AUTH_TOKEN;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  if (!AUTH_TOKEN) {
+    console.error('❌ Missing credentials: set ADMIN_EMAIL, ADMIN_PASSWORD, or AUTH_TOKEN environment variable');
+    process.exit(1);
+  }
+}
 
 // Read CSV file
 const csvPath = 'C:/Users/Rien/Downloads/attendees-import-FINAL.csv';
@@ -46,11 +56,36 @@ console.log(`First row:`, rows[0]);
 
 async function importData() {
   try {
+    let token = AUTH_TOKEN;
+
+    // If no token provided, login first
+    if (!token) {
+      console.log('1. Logging in...');
+      const loginResponse = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })
+      });
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json();
+        console.error('❌ Login failed:', errorData);
+        process.exit(1);
+      }
+
+      const loginData = await loginResponse.json();
+      token = loginData.token;
+      console.log('✓ Login successful');
+    }
+
     // Import CSV data
-    console.log(`\n1. Importing ${rows.length} rows...`);
+    console.log(`\n2. Importing ${rows.length} rows...`);
     const importResponse = await fetch(`${API_URL}/attendees/import`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({ rows })
     });
 
