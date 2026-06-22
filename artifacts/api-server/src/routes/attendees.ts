@@ -308,7 +308,7 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
         }
         newAttendeeIndexMap.get(newAttendeeIndexForBatch)!.push({ month, year });
         attendancesAdded++;
-      } else {
+      } else if (attendee) {
         // Update with missing info
         let updateNeeded = false;
         if (email && !attendee.email) {
