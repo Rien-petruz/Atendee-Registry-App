@@ -338,42 +338,33 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
     }
   }
 
-  // Bulk insert new attendees
+  // Insert new attendees one by one (handles duplicates gracefully)
   if (attendeesToInsert.length > 0) {
-    try {
-      const inserted = await db.insert(attendeesTable).values(attendeesToInsert).returning();
+    for (let i = 0; i < attendeesToInsert.length; i++) {
+      const attendeeData = attendeesToInsert[i];
+      try {
+        const [inserted] = await db.insert(attendeesTable).values(attendeeData).returning();
 
-      // Map new attendee IDs to their attendance records
-      inserted.forEach((attendee, idx) => {
-        const attendanceList = newAttendeeIndexMap.get(idx);
-        if (attendanceList) {
+        // Create attendance records for this attendee
+        const attendanceList = newAttendeeIndexMap.get(i);
+        if (attendanceList && inserted) {
           attendanceList.forEach(({ month, year }) => {
-            attendancesToInsert.push({ attendeeId: attendee.id, month, year });
+            attendancesToInsert.push({ attendeeId: inserted.id, month, year });
           });
         }
-      });
-    } catch (err: any) {
-      // Handle conflict errors - query for attendees by email and create attendance anyway
-      logger.warn({ err }, "Insert had conflicts, querying for existing attendees");
+      } catch (err: any) {
+        // If duplicate, find the existing attendee and create attendance anyway
+        const existing = await db
+          .select()
+          .from(attendeesTable)
+          .where(eq(attendeesTable.email, attendeeData.email))
+          .limit(1);
 
-      const allEmails = attendeesToInsert.map(a => a.email.toLowerCase());
-      const existingAttendees = await db
-        .select()
-        .from(attendeesTable)
-        .where(inArray(attendeesTable.email, allEmails));
-
-      // Create a map of email to ID for quick lookup
-      const emailToIdMap = new Map(existingAttendees.map(a => [a.email!.toLowerCase(), a.id]));
-
-      // Create attendance records for all attendees (both new and existing)
-      for (let i = 0; i < attendeesToInsert.length; i++) {
-        const attendee = attendeesToInsert[i];
-        const attendanceList = newAttendeeIndexMap.get(i);
-        if (attendanceList) {
-          const attendeeId = emailToIdMap.get(attendee.email.toLowerCase());
-          if (attendeeId && attendeeId > 0) {
+        if (existing.length > 0) {
+          const attendanceList = newAttendeeIndexMap.get(i);
+          if (attendanceList) {
             attendanceList.forEach(({ month, year }) => {
-              attendancesToInsert.push({ attendeeId, month, year });
+              attendancesToInsert.push({ attendeeId: existing[0].id, month, year });
             });
           }
         }
