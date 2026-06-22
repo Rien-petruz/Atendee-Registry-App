@@ -417,7 +417,13 @@ router.post("/import", requireAuth, async (req: any, res: any) => {
   });
 
   logger.info({ count: attendancesToInsert.length }, "Step 3: About to insert attendance records");
-  logger.info({ attendancesToInsert }, "Attendance records to insert:");
+
+  // Debug: log newAttendeeIndexMap contents
+  let totalAttendancesInMap = 0;
+  newAttendeeIndexMap.forEach((attendances) => {
+    totalAttendancesInMap += attendances.length;
+  });
+  logger.info({ newAttendeeIndexMapSize: newAttendeeIndexMap.size, totalAttendancesInMap }, "newAttendeeIndexMap content");
 
   // Bulk insert attendance records
   if (attendancesToInsert.length > 0) {
