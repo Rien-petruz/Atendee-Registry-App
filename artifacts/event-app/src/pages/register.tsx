@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader } from "lucide-react";
 import { useRegisterAttendee } from "@workspace/api-client-react";
+import { getApiOptions } from "@/lib/utils";
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Full name is required"),
@@ -21,17 +22,58 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function Register() {
   const [isSuccess, setIsSuccess] = React.useState(false);
-  
+  const [emailValidation, setEmailValidation] = React.useState<{ status?: string; isValid?: boolean; validating?: boolean }>({});
+  const validationTimeoutRef = React.useRef<NodeJS.Timeout>();
+
   const { mutate: register, isPending, error } = useRegisterAttendee();
 
   const {
     register: registerField,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   });
+
+  const watchEmail = watch("email");
+
+  const validateEmailAsync = async (emailValue: string) => {
+    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setEmailValidation({});
+      return;
+    }
+
+    setEmailValidation({ validating: true });
+    try {
+      const response = await fetch(`${getApiOptions().baseURL}/attendees/validate-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailValue }),
+      });
+      const result = await response.json();
+      setEmailValidation({
+        isValid: result.isValid,
+        status: result.status,
+        validating: false,
+      });
+    } catch (err) {
+      setEmailValidation({ validating: false });
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (validationTimeoutRef.current) clearTimeout(validationTimeoutRef.current);
+    validationTimeoutRef.current = setTimeout(() => validateEmailAsync(value), 500);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (validationTimeoutRef.current) clearTimeout(validationTimeoutRef.current);
+    };
+  }, []);
 
   const onSubmit = (data: RegisterFormValues) => {
     register(
@@ -118,14 +160,27 @@ export default function Register() {
 
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="john@example.com"
-                        {...registerField("email")}
-                        className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="john@example.com"
+                          {...registerField("email")}
+                          onChange={(e) => { registerField("email").onChange(e); handleEmailChange(e); }}
+                          className={`${errors.email ? "border-destructive focus-visible:ring-destructive" : emailValidation.isValid === true ? "border-emerald-500" : emailValidation.isValid === false ? "border-destructive" : ""} pr-10`}
+                        />
+                        {emailValidation.validating && (
+                          <Loader className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+                        )}
+                        {emailValidation.isValid === true && !emailValidation.validating && (
+                          <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+                        )}
+                        {emailValidation.isValid === false && !emailValidation.validating && (
+                          <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" />
+                        )}
+                      </div>
                       {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+                      {emailValidation.isValid === false && <p className="text-sm text-destructive">Email appears invalid ({emailValidation.status})</p>}
                     </div>
 
                     <div className="space-y-2">
