@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, attendeesTable, attendancesTable, eq, ilike, or, and, desc, asc, count, sql, inArray } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
+import { validateEmail } from "../services/emailValidationService.js";
 
 const router = Router();
 
@@ -24,6 +25,15 @@ router.post("/", async (req: any, res: any) => {
   }
 
   try {
+    // Validate email with ZeroBounce
+    const emailValidation = await validateEmail(email.toLowerCase());
+    if (!emailValidation.isValid) {
+      res.status(422).json({
+        error: "Invalid Email",
+        message: `Email address appears to be invalid (${emailValidation.status}). Please verify the email address.`,
+      });
+      return;
+    }
     const normalizedEmail = email.toLowerCase();
     const now = new Date();
     const attendanceMonth = month || (now.getMonth() + 1);

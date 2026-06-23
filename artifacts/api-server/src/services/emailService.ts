@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { db, smtpSettingsTable, attendeesTable, emailCampaignsTable, eq, and, sql } from "@workspace/db";
 import { decrypt } from "../lib/crypto.js";
+import { validateEmail } from "./emailValidationService.js";
 
 export async function getSmtpTransport() {
   const [settings] = await db.select().from(smtpSettingsTable).limit(1);
@@ -72,6 +73,14 @@ export async function sendBulkEmail(
 
   const sendEmail = async (recipient: any) => {
     try {
+      // Validate email before sending
+      const emailValidation = await validateEmail(recipient.email);
+      if (!emailValidation.isValid) {
+        failedCount++;
+        errors.push({ email: recipient.email, error: `Invalid email (${emailValidation.status})` });
+        return;
+      }
+
       const personalizedSubject = replacePlaceholders(subject, recipient.fullName, recipient.email);
       const personalizedMessage = replacePlaceholders(messageTemplate, recipient.fullName, recipient.email);
 
