@@ -14,10 +14,16 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
   }
 
   try {
-    const response = await fetch(
-      `${ZEROBOUNCE_API_URL}?api_key=${ZEROBOUNCE_API_KEY}&email=${encodeURIComponent(email)}`,
-      { method: "GET" }
-    );
+    const response = await fetch(ZEROBOUNCE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        api_key: ZEROBOUNCE_API_KEY,
+        email: email,
+      }),
+    });
 
     const data = await response.json() as any;
 
@@ -34,13 +40,13 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
       reason: data.sub_status,
     };
   } catch (err: any) {
-    console.error("ZeroBounce validation error:", err.message);
+    console.error("ZeroBounce validation error occurred");
     // On API error, be lenient and accept the email
     return {
       isValid: true,
       email,
       status: "api_error",
-      reason: err.message,
+      reason: "Validation service temporarily unavailable",
     };
   }
 }
