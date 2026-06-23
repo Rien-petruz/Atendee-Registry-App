@@ -573,53 +573,6 @@ router.post("/validate-email", async (req: any, res: any) => {
   }
 });
 
-// Debug endpoint to test ZeroBounce API directly
-router.post("/debug/zerobounce", async (req: any, res: any) => {
-  const { email } = req.body;
-  const apiKey = process.env.ZEROBOUNCE_API_KEY;
-
-  if (!email) {
-    res.status(422).json({ error: "Email required" });
-    return;
-  }
-
-  try {
-    console.log(`[DEBUG] Testing ZeroBounce with email: ${email}`);
-    console.log(`[DEBUG] API Key present: ${!!apiKey}`);
-    console.log(`[DEBUG] API Key length: ${apiKey?.length || 0}`);
-
-    const params = new URLSearchParams();
-    params.append("api_key", apiKey || "");
-    params.append("email", email);
-
-    const response = await fetch("https://api.zerobounce.net/v2/validate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
-
-    const responseAny = response as any;
-    const status = responseAny.status;
-    const headers = Object.fromEntries(responseAny.headers.entries());
-    const bodyText = await responseAny.text();
-
-    res.json({
-      status,
-      headers,
-      bodyLength: bodyText.length,
-      body: bodyText.substring(0, 500),
-      bodyFull: bodyText,
-    });
-  } catch (err: any) {
-    res.json({
-      error: err.message,
-      stack: err.stack,
-    });
-  }
-});
-
 router.get("/export", requireAuth, async (req: any, res: any) => {
   const { filter = "all" } = req.query as Record<string, string>;
 
