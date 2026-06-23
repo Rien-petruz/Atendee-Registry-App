@@ -89,7 +89,9 @@ async function uploadOneByOne() {
             fullName,
             email: email || `placeholder_${fullName.toLowerCase().replace(/\s+/g, "_")}_${i}@placeholder.local`,
             phoneNumber,
-            isNewcomer
+            isNewcomer,
+            month,
+            year
           })
         });
 

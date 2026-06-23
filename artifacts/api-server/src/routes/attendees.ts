@@ -6,7 +6,7 @@ import { logger } from "../lib/logger.js";
 const router = Router();
 
 router.post("/", async (req: any, res: any) => {
-  const { fullName, email, phoneNumber, isNewcomer } = req.body;
+  const { fullName, email, phoneNumber, isNewcomer, month, year } = req.body;
 
   if (!fullName || !email || !phoneNumber) {
     res.status(422).json({ error: "Validation Error", message: "fullName, email, and phoneNumber are required" });
@@ -26,8 +26,8 @@ router.post("/", async (req: any, res: any) => {
   try {
     const normalizedEmail = email.toLowerCase();
     const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
+    const attendanceMonth = month || (now.getMonth() + 1);
+    const attendanceYear = year || now.getFullYear();
 
     // Find existing attendee or create a new one
     let [attendee] = await db
@@ -50,10 +50,10 @@ router.post("/", async (req: any, res: any) => {
         .returning();
     }
 
-    // Record attendance for the current month — silently ignored if already recorded
+    // Record attendance for the specified month — silently ignored if already recorded
     await db
       .insert(attendancesTable)
-      .values({ attendeeId: attendee.id, month: currentMonth, year: currentYear })
+      .values({ attendeeId: attendee.id, month: attendanceMonth, year: attendanceYear })
       .onConflictDoNothing();
 
     res.status(isReturning ? 200 : 201).json(attendee);
