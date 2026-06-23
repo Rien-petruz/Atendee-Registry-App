@@ -29,8 +29,14 @@ router.post("/", async (req: any, res: any) => {
     const attendanceMonth = month || (now.getMonth() + 1);
     const attendanceYear = year || now.getFullYear();
 
-    // Create registration date from month/year (first day of the month)
-    const registrationDate = new Date(attendanceYear, attendanceMonth - 1, 1);
+    // Create registration date: last Sunday of the month at 5pm
+    const lastDayOfMonth = new Date(attendanceYear, attendanceMonth, 0);
+    const dayOfWeek = lastDayOfMonth.getDay();
+    const daysToSubtract = dayOfWeek === 0 ? 0 : dayOfWeek;
+    const lastSunday = new Date(lastDayOfMonth);
+    lastSunday.setDate(lastSunday.getDate() - daysToSubtract);
+    lastSunday.setHours(17, 0, 0, 0); // 5pm
+    const registrationDate = lastSunday;
 
     // Find existing attendee or create a new one
     let [attendee] = await db
