@@ -13,7 +13,7 @@ router.post("/", async (req: any, res: any) => {
     return;
   }
 
-  if (typeof isNewcomer !== "boolean") {
+  if (isNewcomer !== undefined && typeof isNewcomer !== "boolean") {
     res.status(422).json({ error: "Validation Error", message: "isNewcomer must be a boolean" });
     return;
   }
