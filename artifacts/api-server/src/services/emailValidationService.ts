@@ -23,6 +23,7 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
 
     if (cached.length > 0) {
       const result = cached[0];
+      console.log(`[ZeroBounce] Found cached result for ${normalizedEmail}: ${result.isValid}`);
       return {
         isValid: result.isValid,
         email: normalizedEmail,
@@ -30,8 +31,12 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
         reason: "cached",
       };
     }
-  } catch (err) {
-    console.error("Cache lookup error:", err);
+  } catch (err: any) {
+    console.error("[ZeroBounce] Cache lookup error:", {
+      message: err.message,
+      code: err.code,
+      stack: err.stack,
+    });
   }
 
   if (!ZEROBOUNCE_API_KEY) {
@@ -54,7 +59,19 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
 
     const responseAny = response as any;
     console.log(`[ZeroBounce] Response status: ${responseAny.status}`);
-    const data = await responseAny.json();
+
+    // Read response body first to log it
+    const bodyText = await responseAny.text();
+    console.log(`[ZeroBounce] Response body:`, bodyText);
+
+    // Parse JSON from body
+    let data;
+    try {
+      data = JSON.parse(bodyText);
+    } catch (parseErr) {
+      console.log(`[ZeroBounce] Failed to parse JSON:`, parseErr);
+      throw new Error(`ZeroBounce returned invalid JSON: ${bodyText.substring(0, 100)}`);
+    }
     console.log(`[ZeroBounce] Response data:`, data);
 
     // ZeroBounce status: valid, invalid, catch-all, unknown, spamtrap, abuse, do_not_mail
