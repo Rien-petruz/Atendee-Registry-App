@@ -109,21 +109,10 @@ async function uploadOneByOne() {
           const attendee = await createRes.json();
           console.log(`✓ Row ${i + 1}: Created ${fullName}`);
           created++;
-        }
-
-        // Create attendance record
-        const attendanceRes = await fetch(`${API_URL}/attendees/${email || `placeholder_${fullName.toLowerCase().replace(/\s+/g, "_")}_${i}@placeholder.local`}/attendances`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({ month, year })
-        });
-
-        if (attendanceRes.ok) {
           attendanceCount++;
         }
+
+        // Attendance record is already created by the POST /attendees endpoint above
 
       } catch (err) {
         console.error(`✗ Row ${i + 1}: Error - ${err.message}`);
