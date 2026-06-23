@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Eye, PenLine, Info, AlertCircle, CheckCircle2,
-  ImagePlus, X, History, MailCheck, MailX, Users, CalendarDays, Globe
+  ImagePlus, X, History, MailCheck, MailX, Users, CalendarDays, Globe, Mail, Loader
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -130,13 +130,49 @@ export default function Email() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-display font-bold">Bulk Emailer</h1>
-        <p className="text-muted-foreground mt-1">Send personalized messages to your segmented attendees.</p>
-      </div>
+    <>
+      {/* Loading Overlay */}
+      <AnimatePresence>
+        {isPending && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl p-8 shadow-2xl text-center max-w-sm mx-4"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Mail className="w-8 h-8 text-primary" />
+                  </motion.div>
+                </div>
+              </div>
+              <h2 className="text-xl font-bold mb-2">Sending Emails...</h2>
+              <p className="text-muted-foreground mb-6">Please wait while we deliver your campaign to all recipients.</p>
+              <div className="flex items-center justify-center gap-2">
+                <Loader className="w-4 h-4 text-primary animate-spin" />
+                <span className="text-sm text-muted-foreground">Processing...</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {sendResult && (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-display font-bold">Bulk Emailer</h1>
+          <p className="text-muted-foreground mt-1">Send personalized messages to your segmented attendees.</p>
+        </div>
+
+        {sendResult && (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
           <Card className="border-emerald-500/30 bg-emerald-500/10 overflow-hidden relative">
             <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500" />
@@ -431,6 +467,7 @@ export default function Email() {
           )}
         </div>
       </Card>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }
