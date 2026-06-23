@@ -67,7 +67,7 @@ router.post("/", async (req: any, res: any) => {
       params: err.parameters
     });
     logger.error({ err: err.message, code: err.code, detail: err.detail }, "Failed to register attendee");
-    res.status(500).json({ error: "Internal Server Error", message: "Failed to register attendee", dbError: err.message, dbCode: err.code, dbDetail: err.detail });
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to register attendee" });
   }
 });
 
