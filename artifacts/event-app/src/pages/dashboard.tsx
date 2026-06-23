@@ -152,7 +152,8 @@ export function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean;
   };
 
   const handleClose = () => { reset(); setIsNewcomer(false); setEmail(""); setEmailValidation({}); onClose(); };
-  const isEmailValid = emailValidation.isValid === true && !emailValidation.validating;
+  // Allow submission if email format is valid; API will do full ZeroBounce validation
+  const emailFormatValid = watchEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchEmail);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -231,7 +232,7 @@ export function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean;
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1 border-white/10" onClick={handleClose}>Cancel</Button>
-            <Button type="submit" variant="gradient" className="flex-1" isLoading={isPending} disabled={!isEmailValid || isPending}>Add Attendee</Button>
+            <Button type="submit" variant="gradient" className="flex-1" isLoading={isPending} disabled={!emailFormatValid || isPending}>Add Attendee</Button>
           </div>
         </form>
       </DialogContent>
