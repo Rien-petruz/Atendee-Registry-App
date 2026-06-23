@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import {
   Search, Users, UserPlus, UserCheck, Download,
   ArrowUpDown, ChevronLeft, ChevronRight, Filter, Plus, Calendar, CalendarDays, Upload,
-  MoreHorizontal, Trash2, CalendarX
+  MoreHorizontal, Trash2, CalendarX, CheckCircle, AlertCircle, Loader
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -67,12 +67,54 @@ export function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean;
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [year, setYear] = useState<number>(now.getFullYear());
   const [isNewcomer, setIsNewcomer] = useState<boolean>(false);
+  const [email, setEmail] = useState<string>("");
+  const [emailValidation, setEmailValidation] = useState<{ status?: string; isValid?: boolean; validating?: boolean }>({});
+  const validationTimeoutRef = useRef<NodeJS.Timeout>();
 
   const yearRange = Array.from({ length: 11 }, (_, i) => now.getFullYear() - i);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddAttendeeValues>({
+  const validateEmailAsync = async (emailValue: string) => {
+    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setEmailValidation({});
+      return;
+    }
+
+    setEmailValidation({ validating: true });
+    try {
+      const response = await fetch(`${getApiOptions().baseURL}/attendees/validate-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailValue }),
+      });
+      const result = await response.json();
+      setEmailValidation({
+        isValid: result.isValid,
+        status: result.status,
+        validating: false,
+      });
+    } catch (err) {
+      setEmailValidation({ validating: false });
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (validationTimeoutRef.current) clearTimeout(validationTimeoutRef.current);
+    validationTimeoutRef.current = setTimeout(() => validateEmailAsync(value), 500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (validationTimeoutRef.current) clearTimeout(validationTimeoutRef.current);
+    };
+  }, []);
+
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<AddAttendeeValues>({
     resolver: zodResolver(addAttendeeSchema),
   });
+
+  const watchEmail = watch("email");
 
   const onSubmit = (data: AddAttendeeValues) => {
     addAttendee(
@@ -109,7 +151,8 @@ export function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean;
     );
   };
 
-  const handleClose = () => { reset(); setIsNewcomer(false); onClose(); };
+  const handleClose = () => { reset(); setIsNewcomer(false); setEmail(""); setEmailValidation({}); onClose(); };
+  const isEmailValid = emailValidation.isValid === true && !emailValidation.validating;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -134,9 +177,22 @@ export function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean;
           </div>
           <div className="space-y-2">
             <Label htmlFor="add-email">Email Address <span className="text-destructive">*</span></Label>
-            <Input id="add-email" type="email" placeholder="e.g. john@example.com" {...register("email")}
-              className={`bg-black/30 border-white/10 ${errors.email ? "border-destructive" : ""}`} />
+            <div className="relative">
+              <Input id="add-email" type="email" placeholder="e.g. john@example.com" {...register("email")}
+                onChange={(e) => { e.currentTarget.onchange?.call(e.currentTarget); handleEmailChange(e); }}
+                className={`bg-black/30 border-white/10 pr-10 ${errors.email ? "border-destructive" : emailValidation.isValid === true ? "border-green-500" : emailValidation.isValid === false ? "border-destructive" : ""}`} />
+              {emailValidation.validating && (
+                <Loader className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+              )}
+              {emailValidation.isValid === true && !emailValidation.validating && (
+                <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+              )}
+              {emailValidation.isValid === false && !emailValidation.validating && (
+                <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" />
+              )}
+            </div>
             {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            {emailValidation.isValid === false && <p className="text-xs text-destructive">Email appears invalid ({emailValidation.status})</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="add-phone">Phone Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
@@ -175,7 +231,7 @@ export function AddAttendeeDialog({ open, onClose, onSuccess }: { open: boolean;
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1 border-white/10" onClick={handleClose}>Cancel</Button>
-            <Button type="submit" variant="gradient" className="flex-1" isLoading={isPending}>Add Attendee</Button>
+            <Button type="submit" variant="gradient" className="flex-1" isLoading={isPending} disabled={!isEmailValid || isPending}>Add Attendee</Button>
           </div>
         </form>
       </DialogContent>

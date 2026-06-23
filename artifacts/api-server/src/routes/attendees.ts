@@ -552,6 +552,27 @@ router.get("/", requireAuth, async (req: any, res: any) => {
   });
 });
 
+router.post("/validate-email", async (req: any, res: any) => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== "string") {
+    res.status(422).json({ error: "Email is required" });
+    return;
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(422).json({ error: "Invalid email format" });
+    return;
+  }
+
+  try {
+    const validation = await validateEmail(email.toLowerCase());
+    res.json(validation);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Validation failed" });
+  }
+});
+
 router.get("/export", requireAuth, async (req: any, res: any) => {
   const { filter = "all" } = req.query as Record<string, string>;
 

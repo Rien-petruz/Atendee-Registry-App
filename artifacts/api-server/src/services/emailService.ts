@@ -73,7 +73,14 @@ export async function sendBulkEmail(
 
   const sendEmail = async (recipient: any) => {
     try {
-      // Validate email before sending
+      // Skip placeholder emails
+      if (recipient.email.startsWith("placeholder_")) {
+        failedCount++;
+        errors.push({ email: recipient.email, error: "Placeholder email - skipped" });
+        return;
+      }
+
+      // Validate email before sending (uses cache if available)
       const emailValidation = await validateEmail(recipient.email);
       if (!emailValidation.isValid) {
         failedCount++;

@@ -1,3 +1,5 @@
+import { db, emailValidationCacheTable, eq } from "@workspace/db";
+
 const ZEROBOUNCE_API_KEY = process.env.ZEROBOUNCE_API_KEY;
 const ZEROBOUNCE_API_URL = "https://api.zerobounce.net/v2/validate";
 
@@ -9,6 +11,29 @@ export interface EmailValidationResult {
 }
 
 export async function validateEmail(email: string): Promise<EmailValidationResult> {
+  const normalizedEmail = email.toLowerCase();
+
+  // Check cache first
+  try {
+    const cached = await db
+      .select()
+      .from(emailValidationCacheTable)
+      .where(eq(emailValidationCacheTable.email, normalizedEmail))
+      .limit(1);
+
+    if (cached.length > 0) {
+      const result = cached[0];
+      return {
+        isValid: result.isValid,
+        email: normalizedEmail,
+        status: result.status,
+        reason: "cached",
+      };
+    }
+  } catch (err) {
+    console.error("Cache lookup error:", err);
+  }
+
   if (!ZEROBOUNCE_API_KEY) {
     throw new Error("ZeroBounce API key not configured");
   }
@@ -21,7 +46,7 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
       },
       body: JSON.stringify({
         api_key: ZEROBOUNCE_API_KEY,
-        email: email,
+        email: normalizedEmail,
       }),
     });
 
@@ -33,18 +58,41 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
       data.status === "catch-all" ||
       data.status === "unknown"; // Accept unknown to be lenient
 
-    return {
+    const validationResult: EmailValidationResult = {
       isValid,
-      email,
+      email: normalizedEmail,
       status: data.status || "error",
       reason: data.sub_status,
     };
+
+    // Cache the result
+    try {
+      await db
+        .insert(emailValidationCacheTable)
+        .values({
+          email: normalizedEmail,
+          isValid,
+          status: data.status || "error",
+        })
+        .onConflictDoUpdate({
+          target: emailValidationCacheTable.email,
+          set: {
+            isValid,
+            status: data.status || "error",
+            validatedAt: new Date(),
+          },
+        });
+    } catch (cacheErr) {
+      console.error("Cache write error:", cacheErr);
+    }
+
+    return validationResult;
   } catch (err: any) {
     console.error("ZeroBounce validation error occurred");
     // On API error, be lenient and accept the email
     return {
       isValid: true,
-      email,
+      email: normalizedEmail,
       status: "api_error",
       reason: "Validation service temporarily unavailable",
     };
