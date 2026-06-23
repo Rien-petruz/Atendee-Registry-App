@@ -46,15 +46,17 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
   try {
     console.log(`[ZeroBounce] Validating email: ${normalizedEmail}, API key present: ${!!ZEROBOUNCE_API_KEY}`);
 
+    // Try URL-encoded form data instead of JSON
+    const params = new URLSearchParams();
+    params.append("api_key", ZEROBOUNCE_API_KEY!);
+    params.append("email", normalizedEmail);
+
     const response = await fetch(ZEROBOUNCE_API_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify({
-        api_key: ZEROBOUNCE_API_KEY,
-        email: normalizedEmail,
-      }),
+      body: params.toString(),
     });
 
     const responseAny = response as any;

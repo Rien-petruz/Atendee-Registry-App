@@ -588,15 +588,16 @@ router.post("/debug/zerobounce", async (req: any, res: any) => {
     console.log(`[DEBUG] API Key present: ${!!apiKey}`);
     console.log(`[DEBUG] API Key length: ${apiKey?.length || 0}`);
 
+    const params = new URLSearchParams();
+    params.append("api_key", apiKey || "");
+    params.append("email", email);
+
     const response = await fetch("https://api.zerobounce.net/v2/validate", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify({
-        api_key: apiKey,
-        email: email,
-      }),
+      body: params.toString(),
     });
 
     const responseAny = response as any;
