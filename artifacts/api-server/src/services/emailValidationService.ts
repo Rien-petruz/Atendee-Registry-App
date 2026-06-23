@@ -50,7 +50,7 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
       }),
     });
 
-    const data = await response.json() as any;
+    const data = await (response as any).json();
 
     // ZeroBounce status: valid, invalid, catch-all, unknown, spamtrap, abuse, do_not_mail
     const isValid =
