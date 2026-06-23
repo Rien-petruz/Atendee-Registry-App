@@ -1,0 +1,2 @@
+[     624ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://attendee-registry-app.vercel.app/login:0
+[   24407ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://attendee-registry-app.vercel.app/api/auth/login:0

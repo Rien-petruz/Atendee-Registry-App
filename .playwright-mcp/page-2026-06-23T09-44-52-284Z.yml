@@ -1,0 +1,29 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - img "Abstract Background" [ref=e5]
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img "The Newwine Place Logo" [ref=e9]
+        - heading "TNP Registry" [level=1] [ref=e10]
+        - paragraph [ref=e11]: Admin Portal Login
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - heading "Welcome Back" [level=3] [ref=e14]:
+            - img [ref=e15]
+            - text: Welcome Back
+          - paragraph [ref=e18]: Enter your admin credentials to access the dashboard.
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - text: Admin Email
+            - textbox "Admin Email" [ref=e22]:
+              - /placeholder: admin@tnp.com
+              - text: newwinebelieversnetwork@gmail.com
+          - generic [ref=e23]:
+            - text: Password
+            - textbox "Password" [ref=e24]:
+              - /placeholder: ••••••••
+              - text: PassW0rd
+          - paragraph [ref=e27]: "HTTP 401 : Invalid credentials"
+          - button "Sign In to Dashboard" [ref=e25]
+  - region "Notifications (F8)":
+    - list

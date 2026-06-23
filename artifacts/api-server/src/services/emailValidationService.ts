@@ -39,6 +39,8 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
   }
 
   try {
+    console.log(`[ZeroBounce] Validating email: ${normalizedEmail}, API key present: ${!!ZEROBOUNCE_API_KEY}`);
+
     const response = await fetch(ZEROBOUNCE_API_URL, {
       method: "POST",
       headers: {
@@ -50,7 +52,9 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
       }),
     });
 
+    console.log(`[ZeroBounce] Response status: ${response.status}`);
     const data = await (response as any).json();
+    console.log(`[ZeroBounce] Response data:`, data);
 
     // ZeroBounce status: valid, invalid, catch-all, unknown, spamtrap, abuse, do_not_mail
     const isValid =
@@ -88,13 +92,17 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
 
     return validationResult;
   } catch (err: any) {
-    console.error("ZeroBounce validation error occurred");
+    console.error("[ZeroBounce] Validation error:", {
+      message: err.message,
+      code: err.code,
+      stack: err.stack,
+    });
     // On API error, be lenient and accept the email
     return {
       isValid: true,
       email: normalizedEmail,
       status: "api_error",
-      reason: "Validation service temporarily unavailable",
+      reason: `API error: ${err.message || "Unknown error"}`,
     };
   }
 }

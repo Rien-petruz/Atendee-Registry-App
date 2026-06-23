@@ -1,0 +1,34 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img "Event atmosphere" [ref=e5]
+      - generic [ref=e7]:
+        - img "The Newwine Place Logo" [ref=e8]
+        - heading "Welcome to TNP Registry." [level=2] [ref=e9]
+        - paragraph [ref=e10]: Register today to be part of our church program. We're glad you're here.
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - heading "Get your ticket" [level=3] [ref=e15]
+        - paragraph [ref=e16]: Fill out the details below to complete your registration.
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - text: Full Name
+          - textbox "Full Name" [ref=e20]:
+            - /placeholder: John Doe
+        - generic [ref=e21]:
+          - text: Email Address
+          - textbox "Email Address" [active] [ref=e22]:
+            - /placeholder: john@example.com
+            - text: newwinebelieversnetwork@gmail.com
+        - generic [ref=e23]:
+          - text: Phone Number
+          - textbox "Phone Number" [ref=e24]:
+            - /placeholder: +1 (555) 000-0000
+        - generic [ref=e25]:
+          - checkbox "I am a newcomer" [ref=e26]
+          - generic [ref=e27]:
+            - text: I am a newcomer
+            - paragraph [ref=e28]: Check this if it's your first time attending.
+        - button "Submit" [ref=e29]
+  - region "Notifications (F8)":
+    - list
