@@ -41,7 +41,12 @@ router.post("/", async (req: any, res: any) => {
     if (!attendee) {
       [attendee] = await db
         .insert(attendeesTable)
-        .values({ fullName, email: normalizedEmail, phoneNumber, isNewcomer })
+        .values({
+          fullName,
+          email: normalizedEmail,
+          phoneNumber,
+          isNewcomer: typeof isNewcomer === 'boolean' ? isNewcomer : false
+        })
         .returning();
     }
 
@@ -53,8 +58,16 @@ router.post("/", async (req: any, res: any) => {
 
     res.status(isReturning ? 200 : 201).json(attendee);
   } catch (err: any) {
-    logger.error({ err }, "Failed to register attendee");
-    res.status(500).json({ error: "Internal Server Error", message: "Failed to register attendee" });
+    console.error("Database error details:", {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      constraint: err.constraint,
+      sql: err.query,
+      params: err.parameters
+    });
+    logger.error({ err: err.message, code: err.code, detail: err.detail }, "Failed to register attendee");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to register attendee", details: err.message });
   }
 });
 
