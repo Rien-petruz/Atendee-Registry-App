@@ -29,6 +29,9 @@ router.post("/", async (req: any, res: any) => {
     const attendanceMonth = month || (now.getMonth() + 1);
     const attendanceYear = year || now.getFullYear();
 
+    // Create registration date from month/year (first day of the month)
+    const registrationDate = new Date(attendanceYear, attendanceMonth - 1, 1);
+
     // Find existing attendee or create a new one
     let [attendee] = await db
       .select()
@@ -45,7 +48,8 @@ router.post("/", async (req: any, res: any) => {
           fullName,
           email: normalizedEmail,
           phoneNumber,
-          isNewcomer: typeof isNewcomer === 'boolean' ? isNewcomer : false
+          isNewcomer: typeof isNewcomer === 'boolean' ? isNewcomer : false,
+          createdAt: registrationDate
         })
         .returning();
     }
