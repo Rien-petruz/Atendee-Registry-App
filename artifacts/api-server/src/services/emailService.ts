@@ -65,8 +65,12 @@ export async function sendBulkEmail(
 
   let successCount = 0;
   let failedCount = 0;
+  const errors: Array<{ email: string; error: string }> = [];
 
-  for (const recipient of recipients) {
+  // Send emails with concurrency limit (5 concurrent emails)
+  const CONCURRENCY_LIMIT = 5;
+
+  const sendEmail = async (recipient: any) => {
     try {
       const personalizedSubject = replacePlaceholders(subject, recipient.fullName, recipient.email);
       const personalizedMessage = replacePlaceholders(messageTemplate, recipient.fullName, recipient.email);
@@ -93,9 +97,21 @@ export async function sendBulkEmail(
       });
 
       successCount++;
-    } catch {
+    } catch (err: any) {
       failedCount++;
+      errors.push({ email: recipient.email, error: err?.message || "Unknown error" });
     }
+  };
+
+  // Process emails in batches to respect concurrency limits
+  for (let i = 0; i < recipients.length; i += CONCURRENCY_LIMIT) {
+    const batch = recipients.slice(i, i + CONCURRENCY_LIMIT);
+    await Promise.all(batch.map(sendEmail));
+  }
+
+  // Log errors if any occurred
+  if (errors.length > 0) {
+    console.error(`Email send errors: ${JSON.stringify(errors)}`);
   }
 
   const result = { successCount, failedCount, total: recipients.length };
