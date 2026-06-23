@@ -54,7 +54,7 @@ router.post("/", async (req: any, res: any) => {
           fullName,
           email: normalizedEmail,
           phoneNumber,
-          isNewcomer: typeof isNewcomer === 'boolean' ? isNewcomer : false,
+          isNewcomer: true,
           createdAt: registrationDate
         })
         .returning();
