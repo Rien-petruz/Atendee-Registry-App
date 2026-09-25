@@ -68,6 +68,13 @@ router.post("/", async (req: any, res: any) => {
           createdAt: registrationDate
         })
         .returning();
+    } else if (attendee.isNewcomer) {
+      // Already exists — regardless of what the form says, they are a returning member
+      [attendee] = await db
+        .update(attendeesTable)
+        .set({ isNewcomer: false })
+        .where(eq(attendeesTable.id, attendee.id))
+        .returning();
     }
 
     // Record attendance for the specified month — silently ignored if already recorded
@@ -151,6 +158,12 @@ async function upsertAttendeeWithAttendance(input: {
     // Fill in missing phone if provided
     if (input.phoneNumber && !attendee.phoneNumber) {
       updateData.phoneNumber = input.phoneNumber;
+      updated = true;
+    }
+
+    // Existing attendee re-registering — always record as returning
+    if (attendee.isNewcomer) {
+      updateData.isNewcomer = false;
       updated = true;
     }
 
