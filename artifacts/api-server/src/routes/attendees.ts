@@ -68,13 +68,6 @@ router.post("/", async (req: any, res: any) => {
           createdAt: registrationDate
         })
         .returning();
-    } else if (attendee.isNewcomer) {
-      // Mark as returning member since they've attended before
-      [attendee] = await db
-        .update(attendeesTable)
-        .set({ isNewcomer: false })
-        .where(eq(attendeesTable.id, attendee.id))
-        .returning();
     }
 
     // Record attendance for the specified month — silently ignored if already recorded
@@ -158,12 +151,6 @@ async function upsertAttendeeWithAttendance(input: {
     // Fill in missing phone if provided
     if (input.phoneNumber && !attendee.phoneNumber) {
       updateData.phoneNumber = input.phoneNumber;
-      updated = true;
-    }
-
-    // Mark as returning member if they were previously flagged as newcomer
-    if (attendee.isNewcomer) {
-      updateData.isNewcomer = false;
       updated = true;
     }
 
@@ -519,21 +506,40 @@ router.get("/", requireAuth, async (req: any, res: any) => {
     );
   }
 
-  if (filter === "newcomers") {
-    conditions.push(eq(attendeesTable.isNewcomer, true));
-  } else if (filter === "returning") {
-    conditions.push(eq(attendeesTable.isNewcomer, false));
-  }
-
   const monthNum = parseInt(month, 10);
   const yearNum = parseInt(year, 10);
+  const hasMonthFilter = monthNum >= 1 && monthNum <= 12;
+  const hasYearFilter = yearNum > 0;
 
-  if (monthNum >= 1 && monthNum <= 12 || yearNum > 0) {
-    const monthCond = monthNum >= 1 && monthNum <= 12 ? sql` AND att.month = ${monthNum}` : sql``;
-    const yearCond = yearNum > 0 ? sql` AND att.year = ${yearNum}` : sql``;
-    conditions.push(
-      sql`EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id}${monthCond}${yearCond})`
-    );
+  if ((filter === "newcomers" || filter === "returning") && hasMonthFilter && hasYearFilter) {
+    // Compute newcomer status dynamically for the selected month:
+    // newcomer = first attendance is in this month (no earlier attendance exists)
+    // returning = attended this month AND has at least one attendance in a prior month
+    if (filter === "newcomers") {
+      conditions.push(sql`(
+        EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id} AND att.month = ${monthNum} AND att.year = ${yearNum})
+        AND NOT EXISTS (SELECT 1 FROM attendances att2 WHERE att2.attendee_id = ${attendeesTable.id} AND (att2.year < ${yearNum} OR (att2.year = ${yearNum} AND att2.month < ${monthNum})))
+      )`);
+    } else {
+      conditions.push(sql`(
+        EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id} AND att.month = ${monthNum} AND att.year = ${yearNum})
+        AND EXISTS (SELECT 1 FROM attendances att2 WHERE att2.attendee_id = ${attendeesTable.id} AND (att2.year < ${yearNum} OR (att2.year = ${yearNum} AND att2.month < ${monthNum})))
+      )`);
+    }
+  } else {
+    if (filter === "newcomers") {
+      conditions.push(eq(attendeesTable.isNewcomer, true));
+    } else if (filter === "returning") {
+      conditions.push(eq(attendeesTable.isNewcomer, false));
+    }
+
+    if (hasMonthFilter || hasYearFilter) {
+      const monthCond = hasMonthFilter ? sql` AND att.month = ${monthNum}` : sql``;
+      const yearCond = hasYearFilter ? sql` AND att.year = ${yearNum}` : sql``;
+      conditions.push(
+        sql`EXISTS (SELECT 1 FROM attendances att WHERE att.attendee_id = ${attendeesTable.id}${monthCond}${yearCond})`
+      );
+    }
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
