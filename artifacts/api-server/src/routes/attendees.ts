@@ -545,36 +545,37 @@ router.get("/", requireAuth, async (req: any, res: any) => {
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
   const orderBy = sort === "oldest" ? asc(attendeesTable.createdAt) : desc(attendeesTable.createdAt);
 
-  // When both month and year are provided, compute isNewcomer dynamically per attendee:
-  // true if the attendee has NO attendance record before this month/year
-  const isNewcomerSelect = (hasMonthFilter && hasYearFilter)
-    ? sql<boolean>`NOT EXISTS (
-        SELECT 1 FROM attendances att2
-        WHERE att2.attendee_id = ${attendeesTable.id}
-        AND (att2.year < ${yearNum} OR (att2.year = ${yearNum} AND att2.month < ${monthNum}))
-      )`
-    : attendeesTable.isNewcomer;
-
-  const [attendees, totalResult] = await Promise.all([
-    db
-      .select({
-        id: attendeesTable.id,
-        fullName: attendeesTable.fullName,
-        email: attendeesTable.email,
-        phoneNumber: attendeesTable.phoneNumber,
-        isNewcomer: isNewcomerSelect,
-        createdAt: attendeesTable.createdAt,
-      })
-      .from(attendeesTable)
-      .where(whereClause)
-      .orderBy(orderBy)
-      .limit(limitNum)
-      .offset(offset),
-    db
-      .select({ count: count() })
-      .from(attendeesTable)
-      .where(whereClause),
+  const [rawAttendees, totalResult] = await Promise.all([
+    db.select().from(attendeesTable).where(whereClause).orderBy(orderBy).limit(limitNum).offset(offset),
+    db.select({ count: count() }).from(attendeesTable).where(whereClause),
   ]);
+
+  // When both month and year are active, override isNewcomer with the correct
+  // per-month value: an attendee is a newcomer if they have NO attendance
+  // record before the selected month/year.
+  let attendees: typeof rawAttendees;
+  if (hasMonthFilter && hasYearFilter && rawAttendees.length > 0) {
+    const ids = rawAttendees.map((a) => a.id);
+    const priorAttendances = await db
+      .select({ attendeeId: attendancesTable.attendeeId })
+      .from(attendancesTable)
+      .where(
+        and(
+          inArray(attendancesTable.attendeeId, ids),
+          or(
+            sql`${attendancesTable.year} < ${yearNum}`,
+            and(
+              eq(attendancesTable.year, yearNum),
+              sql`${attendancesTable.month} < ${monthNum}`
+            )
+          )
+        )
+      );
+    const returningIds = new Set(priorAttendances.map((r) => r.attendeeId));
+    attendees = rawAttendees.map((a) => ({ ...a, isNewcomer: !returningIds.has(a.id) }));
+  } else {
+    attendees = rawAttendees;
+  }
 
   const total = Number(totalResult[0]?.count ?? 0);
   const totalPages = Math.ceil(total / limitNum);
