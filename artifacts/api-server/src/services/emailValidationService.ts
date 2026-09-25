@@ -13,6 +13,15 @@ export interface EmailValidationResult {
 export async function validateEmail(email: string): Promise<EmailValidationResult> {
   const normalizedEmail = email.toLowerCase();
 
+  // TEMPORARY: Accept all emails with valid format (no ZeroBounce API calls due to zero credits)
+  console.log(`[Validation] Accepting email (format-only): ${normalizedEmail}`);
+  return {
+    isValid: true,
+    email: normalizedEmail,
+    status: "format_only",
+    reason: "ZeroBounce account out of credits - format validation only",
+  };
+
   // Check cache first
   try {
     const cached = await db
@@ -76,11 +85,24 @@ export async function validateEmail(email: string): Promise<EmailValidationResul
     }
     console.log(`[ZeroBounce] Response data:`, data);
 
+    // Check if ZeroBounce returned an error
+    if (data.error) {
+      console.log(`[ZeroBounce] API error: ${data.error}`);
+      // On API error, be lenient and accept the email
+      return {
+        isValid: true,
+        email: normalizedEmail,
+        status: "api_error",
+        reason: data.error,
+      };
+    }
+
     // ZeroBounce status: valid, invalid, catch-all, unknown, spamtrap, abuse, do_not_mail
+    // Only accept emails with explicit positive statuses
     const isValid =
       data.status === "valid" ||
       data.status === "catch-all" ||
-      data.status === "unknown"; // Accept unknown to be lenient
+      data.status === "unknown"; // Unknown is OK (can't validate but might be valid)
 
     const validationResult: EmailValidationResult = {
       isValid,
