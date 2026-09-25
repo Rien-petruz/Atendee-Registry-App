@@ -545,9 +545,26 @@ router.get("/", requireAuth, async (req: any, res: any) => {
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
   const orderBy = sort === "oldest" ? asc(attendeesTable.createdAt) : desc(attendeesTable.createdAt);
 
+  // When both month and year are provided, compute isNewcomer dynamically per attendee:
+  // true if the attendee has NO attendance record before this month/year
+  const isNewcomerSelect = (hasMonthFilter && hasYearFilter)
+    ? sql<boolean>`NOT EXISTS (
+        SELECT 1 FROM attendances att2
+        WHERE att2.attendee_id = ${attendeesTable.id}
+        AND (att2.year < ${yearNum} OR (att2.year = ${yearNum} AND att2.month < ${monthNum}))
+      )`
+    : attendeesTable.isNewcomer;
+
   const [attendees, totalResult] = await Promise.all([
     db
-      .select()
+      .select({
+        id: attendeesTable.id,
+        fullName: attendeesTable.fullName,
+        email: attendeesTable.email,
+        phoneNumber: attendeesTable.phoneNumber,
+        isNewcomer: isNewcomerSelect,
+        createdAt: attendeesTable.createdAt,
+      })
       .from(attendeesTable)
       .where(whereClause)
       .orderBy(orderBy)
