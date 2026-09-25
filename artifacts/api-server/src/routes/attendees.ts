@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, attendeesTable, attendancesTable, eq, ilike, or, and, desc, asc, count, sql, inArray } from "@workspace/db";
+import { db, attendeesTable, attendancesTable, eq, ilike, or, and, desc, asc, count, sql, inArray, emailValidationCacheTable } from "@workspace/db";
 import { requireAuth } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
 import { validateEmail } from "../services/emailValidationService.js";
@@ -67,6 +67,13 @@ router.post("/", async (req: any, res: any) => {
           isNewcomer: true,
           createdAt: registrationDate
         })
+        .returning();
+    } else if (attendee.isNewcomer) {
+      // Mark as returning member since they've attended before
+      [attendee] = await db
+        .update(attendeesTable)
+        .set({ isNewcomer: false })
+        .where(eq(attendeesTable.id, attendee.id))
         .returning();
     }
 
@@ -140,7 +147,7 @@ async function upsertAttendeeWithAttendance(input: {
       .returning();
   } else {
     // Update existing attendee with any new information
-    const updateData: any = { updatedAt: new Date() };
+    const updateData: any = {};
 
     // Fill in missing email if provided
     if (input.email && !attendee.email) {
@@ -151,6 +158,12 @@ async function upsertAttendeeWithAttendance(input: {
     // Fill in missing phone if provided
     if (input.phoneNumber && !attendee.phoneNumber) {
       updateData.phoneNumber = input.phoneNumber;
+      updated = true;
+    }
+
+    // Mark as returning member if they were previously flagged as newcomer
+    if (attendee.isNewcomer) {
+      updateData.isNewcomer = false;
       updated = true;
     }
 
@@ -600,6 +613,73 @@ router.get("/export", requireAuth, async (req: any, res: any) => {
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", `attachment; filename="attendees-${Date.now()}.csv"`);
   res.send(csv);
+});
+
+router.post("/cleanup-invalid", requireAuth, async (req: any, res: any) => {
+  try {
+    // Get all attendees
+    const allAttendees = await db.select().from(attendeesTable);
+
+    const invalidIds: number[] = [];
+    const validationSummary = {
+      total: allAttendees.length,
+      valid: 0,
+      invalid: 0,
+    };
+
+    // Validate each email using ZeroBounce
+    for (const attendee of allAttendees) {
+      const validation = await validateEmail(attendee.email);
+
+      if (!validation.isValid) {
+        invalidIds.push(attendee.id);
+        validationSummary.invalid++;
+      } else {
+        validationSummary.valid++;
+      }
+
+      // Add small delay to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    if (invalidIds.length === 0) {
+      res.json({
+        success: true,
+        message: "All attendees have valid emails",
+        deletedCount: 0,
+        validationSummary,
+      });
+      return;
+    }
+
+    logger.info(
+      { count: invalidIds.length, ids: invalidIds },
+      "Deleting attendees with invalid emails after ZeroBounce validation"
+    );
+
+    // Delete attendance records first (FK constraint)
+    await db
+      .delete(attendancesTable)
+      .where(inArray(attendancesTable.attendeeId, invalidIds));
+
+    // Delete attendees
+    await db
+      .delete(attendeesTable)
+      .where(inArray(attendeesTable.id, invalidIds));
+
+    res.json({
+      success: true,
+      message: `Validated ${allAttendees.length} attendees and deleted ${invalidIds.length} with invalid emails`,
+      validationSummary,
+      deletedCount: invalidIds.length,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "Failed to cleanup invalid attendees");
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to cleanup invalid attendees",
+    });
+  }
 });
 
 export default router;
